@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "WitBili-OH"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "WitBili-OH 主页"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "WitBili-OH"
+    }
+  ]
+}

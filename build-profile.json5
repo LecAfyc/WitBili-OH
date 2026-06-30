@@ -1,0 +1,56 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\skyuc\\.ohos\\config\\default_BiliTerm_OH_mYazD70NuPQa3t7Crwed2xVbZ3CwYglIWAxQo3f-WKE=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B908138FC54B4C4D4BEA8A6580CD1339C05D4C44DFAB60F40648DED02F2116A77E39A8B900A8A93",
+          "profile": "C:\\Users\\skyuc\\.ohos\\config\\default_BiliTerm_OH_mYazD70NuPQa3t7Crwed2xVbZ3CwYglIWAxQo3f-WKE=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\skyuc\\.ohos\\config\\default_BiliTerm_OH_mYazD70NuPQa3t7Crwed2xVbZ3CwYglIWAxQo3f-WKE=.p12",
+          "storePassword": "0000001BC37AF1063B073688438EFC80FBD5F91EB7800C513B315756A1E11CEDEF41429EF07A9F3E836946"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "targetSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersion": "6.0.2(22)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug",
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}
