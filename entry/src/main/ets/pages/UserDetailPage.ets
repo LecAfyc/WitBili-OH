@@ -2,10 +2,15 @@ import { ArcSwiper, LengthMetrics } from '@kit.ArkUI';
 import { UserCard, UserDetailCard } from '../model/UserCard';
 import { VideoCard, ArticleCard } from '../model/ContentCard';
 import {
-  getUserDetail, getUserVideos, getUserArticles,
-  getUserFollowings, getUserFans,
-  getUserCreatedFavFolders, fillFavFolderDetail,
-  followUser, unfollowUser,
+  getUserDetail,
+  getUserVideos,
+  getUserArticles,
+  getUserFollowings,
+  getUserFans,
+  getUserCreatedFavFolders,
+  fillFavFolderDetail,
+  followUser,
+  unfollowUser,
   ModifyRelationResult
 } from '../api/UserApi';
 import { VideoCardComponent } from '../components/VideoCardComponent';
@@ -18,9 +23,8 @@ import { formatCount } from '../api/CommonApi';
 import { DynamicSection } from '../components/DynamicSection';
 
 @Component
-export struct UserDetailPage{
+export struct UserDetailPage {
   @Consume('pageStack') pageStack: NavPathStack;
-
   // ==== 资源状态 ====
   @State pageParam: UserCard = new UserCard();
   @State isMyself: boolean = false;
@@ -31,31 +35,27 @@ export struct UserDetailPage{
     this.pageParam.isVip ?? false,
     this.pageParam.level ?? '',
     this.pageParam.desc ?? '',
-    '',      // sex
-    false,   // silence
-    false,   // is_followed
-    0,       // followings
-    0,       // followers
-    0,       // favourites
-    0,       // video
-    0        // opus
-    );   //默认构造
-
+    '', // sex
+    false, // silence
+    false, // is_followed
+    0, // followings
+    0, // followers
+    0, // favourites
+    0, // video
+    0// opus
+  ); //默认构造
   // 投递列表状态 + 翻页状态
   @State videoList: VideoCard[] = [];
   @State articleList: ArticleCard[] = [];
-
   // 独立半模态窗口状态
   @State isSheetOpen: boolean = false;
   @State isSheetLoading: boolean = true;
-  @State sheetMode: string = 'following';   // 'following' | 'fans' | 'folders'
+  @State sheetMode: string = 'following'; // 'following' | 'fans' | 'folders'
   @State sheetTitle: string = '';
   @State sheetContents: Array<FavFolder | UserCard> = [];
-
   // Sheet 翻页状态（仅关注/粉丝有翻页，收藏夹无）
   private sheetPage: number = 1;
   private sheetHasMore: boolean = true;
-
   private videoPage: number = 1;
   private articlePage: number = 1;
   private videoHasMore: boolean = true;
@@ -65,10 +65,6 @@ export struct UserDetailPage{
   private videoTotal: number = 0;
   private articleTotal: number = 0;
   private dataLoaded: boolean = false;
-
-  private showNavMenu(): void {
-    this.pageStack.pushPath({name:'Menu'});
-  }
 
   //加载数据的函数
   async loadUserData() {
@@ -134,8 +130,6 @@ export struct UserDetailPage{
     this.articleLoading = false;
   }
 
-  // ========== 关注 / 取关 ==========
-
   /** 处理关注/取关按钮 */
   async handleFollowToggle() {
     if (this.isMyself) {
@@ -171,7 +165,9 @@ export struct UserDetailPage{
           message: result.message || (currentlyFollowed ? '取消失败' : '关注失败'),
           duration: 2000
         });
-        console.warn('[UserDetailPage] ' + (currentlyFollowed ? '取关' : '关注') + '失败: code=' + result.code + ' msg=' + result.message);
+        console.warn(
+          '[UserDetailPage] ' + (currentlyFollowed ? '取关' : '关注') + '失败: code=' + result.code + ' msg=' +
+            result.message);
       }
     } catch (e) {
       console.error('[UserDetailPage] handleFollowToggle 异常: ' + String(e));
@@ -182,7 +178,7 @@ export struct UserDetailPage{
     }
   }
 
-  // ========== Sheet 数据加载 ==========
+  // ========== 关注 / 取关 ==========
 
   /** 点击关注/粉丝/收藏按钮时统一入口 */
   async handleStatClick(mode: string) {
@@ -232,7 +228,7 @@ export struct UserDetailPage{
           await fillFavFolderDetail(f);
         }
         this.sheetContents = result.folders;
-        this.sheetHasMore = false;   // 收藏夹没有翻页机制
+        this.sheetHasMore = false; // 收藏夹没有翻页机制
       }
     } catch (e) {
       console.error('[UserDetailPage] handleStatClick 异常: ' + String(e));
@@ -240,6 +236,8 @@ export struct UserDetailPage{
 
     this.isSheetLoading = false;
   }
+
+  // ========== Sheet 数据加载 ==========
 
   /** Sheet 内翻页加载更多（仅关注/粉丝有效） */
   async loadMoreSheetData() {
@@ -284,17 +282,20 @@ export struct UserDetailPage{
 
       if (this.sheetContents.length === 0) {
         Text('暂无内容')
-          .fontSize(13).fontColor('#999999')
-          .margin({ top: 20 }).textAlign(TextAlign.Center).width('80%')
+          .fontSize(13)
+          .fontColor('#999999')
+          .margin({ top: 20 })
+          .textAlign(TextAlign.Center)
+          .width('80%')
       } else {
         List({ space: 6 }) {
           ForEach(this.sheetContents, (content: (FavFolder | UserCard)) => {
             ListItem() {
               Row() {
                 if (content instanceof FavFolder) {
-                  FolderCardComponent({card: content, color: 'rgba(66,66,66,0.4)'})
+                  FolderCardComponent({ card: content, color: 'rgba(66,66,66,0.4)' })
                 } else {
-                  UserCardComponent({card: content, baseFontSize: 14, color: 'rgba(66,66,66,0.4)'})
+                  UserCardComponent({ card: content, baseFontSize: 14, color: 'rgba(66,66,66,0.4)' })
                 }
               }
               .width('100%')
@@ -319,7 +320,8 @@ export struct UserDetailPage{
                 .width('100%')
               } else if (!this.sheetHasMore && this.sheetContents.length > 0) {
                 Text('— 已加载全部 ' + this.sheetContents.length + ' 项 —')
-                  .fontSize(12).fontColor('#555555')
+                  .fontSize(12)
+                  .fontColor('#555555')
                   .padding(12)
                   .width('100%')
                   .textAlign(TextAlign.Center)
@@ -352,11 +354,11 @@ export struct UserDetailPage{
   }
 
   build() {
-    NavDestination(){
-      ArcSwiper(){
+    NavDestination() {
+      ArcSwiper() {
         //首页
-        Column(){
-          List({space: 10}) {
+        Column() {
+          List({ space: 10 }) {
             // 占位空白，防止被系统返回按钮遮挡
             ListItem() {
               Column().height(40)
@@ -372,7 +374,7 @@ export struct UserDetailPage{
                   .objectFit(ImageFit.Cover)
                   .alt($r('app.media.avatar_alt'))
                   .onClick(() => {
-                    this.pageStack.pushPath({name: 'ImageViewer', param: this.userDetail.headImage})
+                    this.pageStack.pushPath({ name: 'ImageViewer', param: this.userDetail.headImage })
                   })
               }
               .width('100%')
@@ -447,8 +449,13 @@ export struct UserDetailPage{
               .borderRadius(10)
               .justifyContent(FlexAlign.SpaceBetween)
               .width(175)
-              .padding({ left: 15, right: 15, top: 6 ,bottom: 6})
-              .margin({ left: 15, right: 15})
+              .padding({
+                left: 15,
+                right: 15,
+                top: 6,
+                bottom: 6
+              })
+              .margin({ left: 15, right: 15 })
               .onClick(() => {
                 this.handleStatClick('following');
               })
@@ -470,8 +477,13 @@ export struct UserDetailPage{
               .borderRadius(10)
               .width(175)
               .justifyContent(FlexAlign.SpaceBetween)
-              .padding({ left: 15, right: 15, top: 6 ,bottom: 6})
-              .margin({ left: 15, right: 15})
+              .padding({
+                left: 15,
+                right: 15,
+                top: 6,
+                bottom: 6
+              })
+              .margin({ left: 15, right: 15 })
               .onClick(() => {
                 this.handleStatClick('fans');
               })
@@ -493,8 +505,13 @@ export struct UserDetailPage{
               .borderRadius(10)
               .width(175)
               .justifyContent(FlexAlign.SpaceBetween)
-              .padding({ left: 15, right: 15, top: 6 ,bottom: 6})
-              .margin({ left: 15, right: 15})
+              .padding({
+                left: 15,
+                right: 15,
+                top: 6,
+                bottom: 6
+              })
+              .margin({ left: 15, right: 15 })
               .onClick(() => {
                 this.handleStatClick('folders');
               })
@@ -511,8 +528,13 @@ export struct UserDetailPage{
                 .borderRadius(10)
                 .justifyContent(FlexAlign.Center)
                 .width(175)
-                .padding({ left: 15, right: 15, top: 6 ,bottom: 6})
-                .margin({ left: 15, right: 15})
+                .padding({
+                  left: 15,
+                  right: 15,
+                  top: 6,
+                  bottom: 6
+                })
+                .margin({ left: 15, right: 15 })
                 .onClick(() => {
                   let listParams: VideoListPageParams = new VideoListPageParams('history', '历史记录');
                   this.pageStack.pushPath({ name: 'VideoListPage', param: listParams });
@@ -531,8 +553,13 @@ export struct UserDetailPage{
                 .borderRadius(10)
                 .justifyContent(FlexAlign.Center)
                 .width(175)
-                .padding({ left: 15, right: 15, top: 6 ,bottom: 6})
-                .margin({ left: 15, right: 15})
+                .padding({
+                  left: 15,
+                  right: 15,
+                  top: 6,
+                  bottom: 6
+                })
+                .margin({ left: 15, right: 15 })
                 .onClick(() => {
                   let listParams: VideoListPageParams = new VideoListPageParams('watchLater', '稍后再看');
                   this.pageStack.pushPath({ name: 'VideoListPage', param: listParams });
@@ -544,7 +571,7 @@ export struct UserDetailPage{
               Column().height(40)
             }
           }
-          .padding({left: 14, right: 14})
+          .padding({ left: 14, right: 14 })
           .width('100%')
           .height('100%')
           .focusable(true)
@@ -552,13 +579,13 @@ export struct UserDetailPage{
           .defaultFocus(true)
         }
 
-        Column(){
-          DynamicSection({mid: this.userDetail.mid})
+        Column() {
+          DynamicSection({ mid: this.userDetail.mid })
         }
 
         //视频投稿页
-        Column(){
-          List({space: 10}) {
+        Column() {
+          List({ space: 10 }) {
             // 占位空白，防止被系统返回按钮遮挡
             ListItem() {
               Column().height(40)
@@ -610,7 +637,7 @@ export struct UserDetailPage{
           }
           .width('100%')
           .height('100%')
-          .padding({left: 14, right: 14})
+          .padding({ left: 14, right: 14 })
           .onReachEnd(() => {
             this.loadMoreVideos();
           })
@@ -620,8 +647,8 @@ export struct UserDetailPage{
         }
 
         //专栏投稿页
-        Column(){
-          List({space: 10}) {
+        Column() {
+          List({ space: 10 }) {
             // 占位空白，防止被系统返回按钮遮挡
             ListItem() {
               Column().height(40)
@@ -673,7 +700,7 @@ export struct UserDetailPage{
           }
           .width('100%')
           .height('100%')
-          .padding({left: 14, right: 14})
+          .padding({ left: 14, right: 14 })
           .onReachEnd(() => {
             this.loadMoreArticles();
           })
@@ -685,9 +712,10 @@ export struct UserDetailPage{
       .indicator(false)
       .height('100%')
       .width('100%')
+
       //注意这里有额外的返回按钮，放在List以外的第一个元素要为空占位防止遮挡
       Row() {
-        if (this.isMyself){
+        if (this.isMyself) {
           Row() {
             Circle().width(8).height(8).fill('#FB7299')
             Text('个人').fontSize(16).fontColor('#EEEEEE')
@@ -698,9 +726,22 @@ export struct UserDetailPage{
           })
           .justifyContent(FlexAlign.Center)
           .width('100%')
-        }else{
-          Text('<').fontSize(18).fontColor('#FB7299').width(24).textAlign(TextAlign.Center).onClick(() => { if (this.pageStack) this.pageStack.pop(); })
-          Text('返回').fontSize(15).fontColor('#EEEEEE').margin({ left: 4 }).onClick(() => { if (this.pageStack) this.pageStack.pop(); })
+        } else {
+          Text('<')
+            .fontSize(18)
+            .fontColor('#FB7299')
+            .width(24)
+            .textAlign(TextAlign.Center)
+            .onClick(() => {
+              if (this.pageStack) {
+                this.pageStack.pop();
+              }
+            })
+          Text('返回').fontSize(15).fontColor('#EEEEEE').margin({ left: 4 }).onClick(() => {
+            if (this.pageStack) {
+              this.pageStack.pop();
+            }
+          })
         }
       }
       .width('30%')
@@ -709,7 +750,8 @@ export struct UserDetailPage{
       .borderRadius(10)
       .backgroundColor('rgba(22,22,22,0.6)')
     }
-    .bindSheet($$this.isSheetOpen, this.favFolderSheetBuilder(), { height: SheetSize.LARGE , backgroundColor: Color.Transparent, blurStyle: BlurStyle.Regular})
+    .bindSheet($$this.isSheetOpen, this.favFolderSheetBuilder(),
+      { height: SheetSize.LARGE, backgroundColor: Color.Transparent, blurStyle: BlurStyle.Regular })
     .height('100%')
     .width('100%')
     .backgroundImage($r("app.media.oobe"))
@@ -717,9 +759,11 @@ export struct UserDetailPage{
     .hideTitleBar(true)
     .onReady((context: NavDestinationContext) => {
       let incoming: UserCard = context.pathInfo.param as UserCard;
-      if (incoming && (incoming.mid > 0)){
+      if (incoming && (incoming.mid > 0)) {
         this.pageParam = incoming;
-        if (incoming.mid == AppStorage.get<number>("mid")) this.isMyself = true;
+        if (incoming.mid == AppStorage.get<number>("mid")) {
+          this.isMyself = true;
+        }
       }
       //调用加载数据的函数
       this.loadUserData();
@@ -727,5 +771,9 @@ export struct UserDetailPage{
     .onHidden(() => {
       this.isSheetOpen = false;
     })
+  }
+
+  private showNavMenu(): void {
+    this.pageStack.pushPath({ name: 'Menu' });
   }
 }

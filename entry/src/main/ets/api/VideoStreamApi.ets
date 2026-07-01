@@ -1,14 +1,6 @@
 /**
  * 视频 DASH 流解析 API
  *
- * 从 B站 playurl API 获取 DASH 格式（音视频分离）数据，
- * 逻辑与 Android 端 BiliClient 完全一致：
- *   1. 请求 x/player/wbi/playurl 时使用 fnval=16（兼容 DASH 和 durl）
- *   2. 优先解析 data.dash 中的 video / audio 流
- *   3. 按 qn 匹配视频流 → 按优先级匹配最佳音频流
- *   4. 若无 dash 则 fallback 到 durl
- *
- * API: GET /x/player/wbi/playurl?bvid=xxx&cid=xxx&qn=xxx&fnval=16
  */
 
 import { ApiResponse, httpGet } from './CommonApi';
@@ -18,61 +10,67 @@ import { signWBI } from './WbiSign';
 
 /** DASH 视频流 */
 export interface DashVideoStream {
-  id: number;               // 清晰度代码（16=360P, 32=480P, 64=720P, 80=1080P, …）
-  baseUrl: string;          // 默认流 URL
-  backupUrl: string[];      // 备用流 URL
-  bandwidth: number;        // 所需最低带宽
-  mimeType: string;         // 格式 mimeType
-  codecs: string;           // 编码类型（avc1.640028 / hev1.1.6.L153.B0 / av01.0.05M.08 等）
-  width: number;            // 视频宽度（像素）
-  height: number;           // 视频高度（像素）
-  frameRate: string;        // 视频帧率
-  codecid: number;          // 码流编码标识代码（7=AVC, 12=HEVC, 13=AV1）
+  id: number; // 清晰度代码（16=360P, 32=480P, 64=720P, 80=1080P, …）
+  baseUrl: string; // 默认流 URL
+  backupUrl: string[]; // 备用流 URL
+  bandwidth: number; // 所需最低带宽
+  mimeType: string; // 格式 mimeType
+  codecs: string; // 编码类型（avc1.640028 / hev1.1.6.L153.B0 / av01.0.05M.08 等）
+  width: number; // 视频宽度（像素）
+  height: number; // 视频高度（像素）
+  frameRate: string; // 视频帧率
+  codecid: number; // 码流编码标识代码（7=AVC, 12=HEVC, 13=AV1）
 }
 
 /** DASH 音频流 */
 export interface DashAudioStream {
-  id: number;               // 音质代码
-  baseUrl: string;          // 默认流 URL
-  backupUrl: string[];      // 备用流 URL
-  bandwidth: number;        // 码率
-  mimeType: string;         // 格式 mimeType
-  codecs: string;           // 音频编码（mp4a.40.2 / mp4a.40.5 等）
-  codecid: number;          // 编码标识（音频流恒为 0）
+  id: number; // 音质代码
+  baseUrl: string; // 默认流 URL
+  backupUrl: string[]; // 备用流 URL
+  bandwidth: number; // 码率
+  mimeType: string; // 格式 mimeType
+  codecs: string; // 音频编码（mp4a.40.2 / mp4a.40.5 等）
+  codecid: number; // 编码标识（音频流恒为 0）
 }
 
 /** DASH 顶层数据 */
 export interface DashData {
-  duration: number;               // 视频长度（秒）
-  minBufferTime: number;          // 最小缓冲时间
+  duration: number; // 视频长度（秒）
+  minBufferTime: number; // 最小缓冲时间
   videoStreams: DashVideoStream[]; // 视频流列表（按清晰度从高到低）
   audioStreams: DashAudioStream[]; // 音频流列表（按码率从高到低）
-  dolbyAudio: DashAudioStream | null;  // 杜比全景声音频
-  flacAudio: DashAudioStream | null;   // 无损音轨音频
-  streamType: number;             // 流类型（0=video, 1=audio_only）
+  dolbyAudio: DashAudioStream | null; // 杜比全景声音频
+  flacAudio: DashAudioStream | null; // 无损音轨音频
+  streamType: number; // 流类型（0=video, 1=audio_only）
 }
 
 /** DASH 流返回结果 */
 export interface DashPlayUrlResult {
   /** 选中的视频流 URL */
   videoUrl: string;
+
   /** 选中的音频流 URL（可能是 flac/杜比/最高码率普通音频） */
   audioUrl: string;
+
   /** 完整 DASH 数据 */
   dashData: DashData;
+
   /** 可用清晰度描述列表 */
   acceptDescription: string[];
+
   /** 可用清晰度值列表 */
   acceptQuality: number[];
+
   /** 续播进度（秒） */
   lastPlayTime: number;
+
   /** 弹幕 URL */
   danmakuUrl: string;
+
   /** 是否为 DASH 格式（false 表示 fallback 到了 durl） */
   isDash: boolean;
 }
 
-// ===== 音频流选择（与 Android 的 getBestAudioStream 一致） =====
 
 /**
  * 获取最高质量的音频流
@@ -171,7 +169,6 @@ function parseDashAudioStream(json: Record<string, Object>): DashAudioStream {
 
 /**
  * 从 API 返回的 JSON 解析整个 DASH 数据
- * 逻辑与 Android 的 DashData.fromJson() 完全一致
  */
 function parseDashData(dashJson: Record<string, Object>): DashData {
   let duration: number = (dashJson['duration'] as number) || 0;
@@ -246,7 +243,6 @@ function parseDashData(dashJson: Record<string, Object>): DashData {
   };
 }
 
-// ===== 获取指定 qn 的视频流（与 Android 的 getVideoStream 一致） =====
 
 /**
  * 从 DASH 数据中获取指定清晰度的视频流
@@ -269,12 +265,6 @@ function getVideoStreamForQn(dashData: DashData, qn: number): DashVideoStream | 
 
 /**
  * 获取视频 DASH 流地址
- *
- * 流程与 Android 的 PlayerApi.getVideoDash() 一致：
- *   1. 请求 x/player/wbi/playurl，fnval=16
- *   2. 检查 data.dash 是否存在
- *   3. 若存在 → 解析 DASH，按 qn 选视频流，按优先级选音频流
- *   4. 若不存在 → fallback 到 durl 格式
  *
  * @param bvid 稿件 bvid
  * @param cid  分P cid
@@ -352,7 +342,6 @@ export async function getDashPlayUrl(bvid: string, cid: number, qn: number): Pro
     };
   }
 
-  // ---- Fallback: durl 模式（与 Android 的 getVideo 一致） ----
   console.info('[VideoStreamApi] 无 DASH 数据，fallback 到 durl');
   let durl: Object[] = (d['durl'] as Object[]) || [];
   if (durl.length === 0) {

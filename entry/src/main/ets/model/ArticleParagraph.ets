@@ -76,9 +76,15 @@ export class ArticleParagraph {
   content: Object = '';
 
   constructor(type?: number, align?: number, content?: Object) {
-    if (type !== undefined) this.type = type;
-    if (align !== undefined) this.align = align;
-    if (content !== undefined) this.content = content;
+    if (type !== undefined) {
+      this.type = type;
+    }
+    if (align !== undefined) {
+      this.align = align;
+    }
+    if (content !== undefined) {
+      this.content = content;
+    }
   }
 
   /** 获取文本内容（适用于文本类段落） */

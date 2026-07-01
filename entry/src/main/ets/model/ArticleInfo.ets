@@ -52,16 +52,36 @@ export class ArticleStats {
     coined?: number,
     coin_limit?: number
   ) {
-    if (view !== undefined) this.view = view;
-    if (like !== undefined) this.like = like;
-    if (coin !== undefined) this.coin = coin;
-    if (favorite !== undefined) this.favorite = favorite;
-    if (share !== undefined) this.share = share;
-    if (reply !== undefined) this.reply = reply;
-    if (liked !== undefined) this.liked = liked;
-    if (favoured !== undefined) this.favoured = favoured;
-    if (coined !== undefined) this.coined = coined;
-    if (coin_limit !== undefined) this.coin_limit = coin_limit;
+    if (view !== undefined) {
+      this.view = view;
+    }
+    if (like !== undefined) {
+      this.like = like;
+    }
+    if (coin !== undefined) {
+      this.coin = coin;
+    }
+    if (favorite !== undefined) {
+      this.favorite = favorite;
+    }
+    if (share !== undefined) {
+      this.share = share;
+    }
+    if (reply !== undefined) {
+      this.reply = reply;
+    }
+    if (liked !== undefined) {
+      this.liked = liked;
+    }
+    if (favoured !== undefined) {
+      this.favoured = favoured;
+    }
+    if (coined !== undefined) {
+      this.coined = coined;
+    }
+    if (coin_limit !== undefined) {
+      this.coin_limit = coin_limit;
+    }
   }
 }
 
@@ -90,7 +110,6 @@ export class ArticleInfo {
   wordCount: number = 0;
   /** 关键词 */
   keywords: string = '';
-
   // ===== 正文内容 =====
 
   /**
@@ -102,20 +121,17 @@ export class ArticleInfo {
    * 由 API 层直接转换填充。
    */
   paragraphs: ArticleParagraph[] = [];
-
   /**
    * 原始 HTML 正文（仅旧版 /x/article/view 接口存在）。
    * 新版 Opus API 返回结构化的 paragraphs 数据，此时此字段为空。
    * 可通过 ArticleApi.parseContentHtml() 将其解析为 paragraphs。
    */
   rawContent: string = '';
-
   /**
    * 顶部图片列表（Opus API 的 MODULE_TYPE_TOP）。
    * Opus 图文类动态的封面图组（与 banner 不同）。
    */
   topImages: string[] = [];
-
   // ===== 评论区信息 =====
 
   /** 关联的评论区 ID */
@@ -134,14 +150,32 @@ export class ArticleInfo {
     wordCount?: number,
     keywords?: string
   ) {
-    if (id !== undefined) this.id = id;
-    if (title !== undefined) this.title = title;
-    if (summary !== undefined) this.summary = summary;
-    if (banner !== undefined) this.banner = banner;
-    if (upInfo !== undefined) this.upInfo = upInfo;
-    if (ctime !== undefined) this.ctime = ctime;
-    if (stats !== undefined) this.stats = stats;
-    if (wordCount !== undefined) this.wordCount = wordCount;
-    if (keywords !== undefined) this.keywords = keywords;
+    if (id !== undefined) {
+      this.id = id;
+    }
+    if (title !== undefined) {
+      this.title = title;
+    }
+    if (summary !== undefined) {
+      this.summary = summary;
+    }
+    if (banner !== undefined) {
+      this.banner = banner;
+    }
+    if (upInfo !== undefined) {
+      this.upInfo = upInfo;
+    }
+    if (ctime !== undefined) {
+      this.ctime = ctime;
+    }
+    if (stats !== undefined) {
+      this.stats = stats;
+    }
+    if (wordCount !== undefined) {
+      this.wordCount = wordCount;
+    }
+    if (keywords !== undefined) {
+      this.keywords = keywords;
+    }
   }
 }

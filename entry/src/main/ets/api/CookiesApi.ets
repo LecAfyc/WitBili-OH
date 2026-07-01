@@ -14,7 +14,6 @@
  */
 
 import { http } from '@kit.NetworkKit';
-import { buffer } from '@kit.ArkTS';
 import { hmacSha256, genBuvidFp } from './CommonApi';
 
 // ===== Cookie 存储器 =====
@@ -145,7 +144,8 @@ export function genCookiePayload(): string {
   // ArkTS 禁止未类型化的复杂嵌套对象字面量，用字符串拼接构建 payload 避免此限制
   let resolution: [number, number] = genBrowserResolution();
   let uuid: string = getCookieValue('_uuid');
-  let ua: string = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.95 Safari/537.36';
+  let ua: string =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.95 Safari/537.36';
   let w: number = resolution[0];
   let h: number = resolution[1];
 
@@ -157,38 +157,39 @@ export function genCookiePayload(): string {
     + '"03bf":"https://www.bilibili.com/",'
     + '"6e7c":"' + w + 'x' + h + '",'
     + '"3c43":{'
-      + '"2673":0,'
-      + '"5766":24,'
-      + '"6527":0,'
-      + '"7003":1,'
-      + '"807e":1,'
-      + '"b8ce":' + JSON.stringify(ua) + ','
-      + '"641c":0,'
-      + '"07a4":"zh-CN",'
-      + '"1c57":8,'
-      + '"0bd0":4,'
-      + '"748e":[' + h + ',' + w + '],'
-      + '"d61f":[' + h + ',' + w + '],'
-      + '"fc9d":-480,'
-      + '"6aa9":"Asia/Shanghai",'
-      + '"75b8":1,'
-      + '"3b21":1,'
-      + '"8a1c":0,'
-      + '"d52f":"not available",'
-      + '"adca":"Win32",'
-      + '"80c9":' + genPluginArrayJson() + ','
-      + '"13ab":"hwAAAABJRU5ErkJggg==",'
-      + '"bfe9":"SAAskoALCSsZpEUcC+Av8DxpQVtSPLlMwAAAAASUVORK5CYII=",'
-      + '"a3c1":' + genWebglInfoJson() + ','
-      + '"6bc5":"Google Inc. (Intel)~ANGLE (Intel, Intel(R) HD Graphics 4000 (0x00000166) Direct3D11 vs_5_0 ps_5_0, D3D11)",'
-      + '"ed31":0,'
-      + '"72bd":0,'
-      + '"097b":0,'
-      + '"52cd":[0,0,0],'
-      + '"a658":' + genFontListJson() + ','
-      + '"d02f":"124.04347527516074"'
+    + '"2673":0,'
+    + '"5766":24,'
+    + '"6527":0,'
+    + '"7003":1,'
+    + '"807e":1,'
+    + '"b8ce":' + JSON.stringify(ua) + ','
+    + '"641c":0,'
+    + '"07a4":"zh-CN",'
+    + '"1c57":8,'
+    + '"0bd0":4,'
+    + '"748e":[' + h + ',' + w + '],'
+    + '"d61f":[' + h + ',' + w + '],'
+    + '"fc9d":-480,'
+    + '"6aa9":"Asia/Shanghai",'
+    + '"75b8":1,'
+    + '"3b21":1,'
+    + '"8a1c":0,'
+    + '"d52f":"not available",'
+    + '"adca":"Win32",'
+    + '"80c9":' + genPluginArrayJson() + ','
+    + '"13ab":"hwAAAABJRU5ErkJggg==",'
+    + '"bfe9":"SAAskoALCSsZpEUcC+Av8DxpQVtSPLlMwAAAAASUVORK5CYII=",'
+    + '"a3c1":' + genWebglInfoJson() + ','
+    +
+    '"6bc5":"Google Inc. (Intel)~ANGLE (Intel, Intel(R) HD Graphics 4000 (0x00000166) Direct3D11 vs_5_0 ps_5_0, D3D11)",'
+    + '"ed31":0,'
+    + '"72bd":0,'
+    + '"097b":0,'
+    + '"52cd":[0,0,0],'
+    + '"a658":' + genFontListJson() + ','
+    + '"d02f":"124.04347527516074"'
     + '}'
-  + '}';
+    + '}';
 
   return '{"payload":' + JSON.stringify(innerPayload) + '}';
 }
@@ -202,7 +203,8 @@ function genPluginArrayJson(): string {
     + '["BaiduYunGuanjia Application","YunWebDetect",[["application/bd-npyunwebdetect-plugin",""]]],'
     + '["Chromium PDF Plugin","Portable Document Format",[["application/x-google-chrome-pdf","pdf"]]],'
     + '["Chromium PDF Viewer","",[["application/pdf","pdf"]]],'
-    + '["Java Deployment Toolkit 8.0.2910.10","NPRuntime Script Plug-in Library for Java(TM) Deploy",[["application/java-deployment-toolkit",""]]],'
+    +
+    '["Java Deployment Toolkit 8.0.2910.10","NPRuntime Script Plug-in Library for Java(TM) Deploy",[["application/java-deployment-toolkit",""]]],'
     + '["Java(TM) Platform SE 8 U291","Next Generation Java Plug-in 11.291.2 for Mozilla browsers",['
     + '["application/x-java-applet",""],["application/x-java-bean",""],'
     + '["application/x-java-vm",""],["application/x-java-applet;version=1.1.1",""],'
@@ -231,7 +233,8 @@ function genPluginArrayJson(): string {
     + '["audio/x-ms-wma","wma,*"],["audio/x-ms-wax","wax,*"],'
     + '["video/x-ms-wmv","wmv,*"],["video/x-ms-wvx","wvx,*"]]],'
     + '["QQÒôÀÖ²¥·Å¿Ø¼þ","QQÒôÀÖ²¥·Å¿Ø¼þ",[["application/tecent-qzonemusic-plugin","rts"]]],'
-    + '["Shockwave Flash","Shockwave Flash 34.0 r0",[["application/x-shockwave-flash","swf"],["application/futuresplash","spl"]]],'
+    +
+    '["Shockwave Flash","Shockwave Flash 34.0 r0",[["application/x-shockwave-flash","swf"],["application/futuresplash","spl"]]],'
     + '["XunLei User Plugin","Xunlei User scriptability Plugin,version= 2.0.2.3",[["application/npxluser_plugin",""]]],'
     + '["iTrusChina iTrusPTA,XEnroll,iEnroll,hwPTA,UKeyInstalls Firefox Plugin",'
     + '"iTrusPTA&XEnroll hwPTA,IEnroll,UKeyInstalls for FireFox,version=1.0.0.2",'
@@ -321,7 +324,9 @@ function genWebglInfoJson(): string {
   ];
   let combined: string = '';
   for (let i: number = 0; i < arr.length; i++) {
-    if (i > 0) combined += ',';
+    if (i > 0) {
+      combined += ',';
+    }
     combined += JSON.stringify(arr[i]);
   }
   return '[' + combined + ']';
@@ -346,7 +351,9 @@ function genFontListJson(): string {
   ];
   let combined: string = '';
   for (let i: number = 0; i < arr.length; i++) {
-    if (i > 0) combined += ',';
+    if (i > 0) {
+      combined += ',';
+    }
     combined += JSON.stringify(arr[i]);
   }
   return '[' + combined + ']';
@@ -584,14 +591,14 @@ export async function genBiliTicket(): Promise<TicketResult> {
   console.info("Cookie - url=" + url)
   try {
     // POST 请求，参数在 URL 中。Body 为空，不设置 Content-Type。
-    // 参考 Node.js Demo: fetch(url, { method: 'POST', headers: { 'User-Agent': '...' } })
     let headers: Record<string, string> = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.95 Safari/537.36',
       'Referer': 'https://www.bilibili.com/'
     };
     // 使用 rawPostNoBody 发空 body（不在 extraData 中设 body），不设 Content-Type 头
     let result: Record<string, Object> = await rawPostNoBody(url, headers);
-    console.info('[CookiesApi] genBiliTicket 响应: code=' + result['code'] + ' hasData=' + (result['data'] !== undefined));
+    console.info(
+      '[CookiesApi] genBiliTicket 响应: code=' + result['code'] + ' hasData=' + (result['data'] !== undefined));
     if (result['data']) {
       let data: Record<string, Object> = result['data'] as Record<string, Object>;
       return { ticket: (data['ticket'] as string) || '', createdAt: (data['created_at'] as number) || 0 };
@@ -604,12 +611,11 @@ export async function genBiliTicket(): Promise<TicketResult> {
 }
 
 
-
 // ===== 本地 Cookie 生成工具 =====
 
 /** 获取浏览器分辨率 */
 function genBrowserResolution(): [number, number] {
-  return [1920, 1080];   //返回真实的的手表分辨率反而更奇怪吧？？
+  return [1920, 1080]; //返回真实的的手表分辨率反而更奇怪吧？？
 }
 
 /**
@@ -716,8 +722,12 @@ export async function checkCookies(loginCookieMap?: Record<string, string>): Pro
     let bv: [string, string] = await getWebBuvids();
     let b3: string = bv[0];
     let b4: string = bv[1];
-    if (b3) cookieMap['buvid3'] = b3;
-    if (b4) cookieMap['buvid4'] = b4;
+    if (b3) {
+      cookieMap['buvid3'] = b3;
+    }
+    if (b4) {
+      cookieMap['buvid4'] = b4;
+    }
   }
 
   // 7. LIVE_BUVID

@@ -48,7 +48,9 @@ function stripEmTags(text: string): string {
  * 安全获取字符串字段值（防止 undefined 转换异常）
  */
 function safeStr(val: Object | undefined | null, fallback: string): string {
-  if (val === undefined || val === null) return fallback;
+  if (val === undefined || val === null) {
+    return fallback;
+  }
   return String(val);
 }
 
@@ -56,8 +58,12 @@ function safeStr(val: Object | undefined | null, fallback: string): string {
  * 安全获取数字字段值
  */
 function safeNum(val: Object | undefined | null, fallback: number): number {
-  if (val === undefined || val === null) return fallback;
-  if (typeof val === 'number') return val;
+  if (val === undefined || val === null) {
+    return fallback;
+  }
+  if (typeof val === 'number') {
+    return val;
+  }
   let n: number = Number(val);
   return isNaN(n) ? fallback : n;
 }
@@ -93,7 +99,9 @@ export async function searchVideos(keyword: string, page: number = 1): Promise<V
   if (!kw) {
     return [];
   }
-  if (page < 1) page = 1;
+  if (page < 1) {
+    page = 1;
+  }
 
   console.info('[SearchApi] searchVideos keyword=' + kw + ' page=' + page);
 
@@ -123,7 +131,9 @@ export async function searchVideos(keyword: string, page: number = 1): Promise<V
     let item: Record<string, Object> = rawResults[i] as Record<string, Object>;
 
     let type: string = safeStr(item['type'], '');
-    if (type !== 'video') continue;
+    if (type !== 'video') {
+      continue;
+    }
 
     let title: string = stripEmTags(safeStr(item['title'], ''));
     let author: string = safeStr(item['author'], '');
@@ -158,7 +168,9 @@ export async function searchUsers(keyword: string, page: number = 1): Promise<Us
   if (!kw) {
     return [];
   }
-  if (page < 1) page = 1;
+  if (page < 1) {
+    page = 1;
+  }
 
   console.info('[SearchApi] searchUsers keyword=' + kw + ' page=' + page);
 
@@ -189,7 +201,9 @@ export async function searchUsers(keyword: string, page: number = 1): Promise<Us
 
     // 过滤非 bili_user 类型
     let type: string = safeStr(item['type'], '');
-    if (type !== 'bili_user') continue;
+    if (type !== 'bili_user') {
+      continue;
+    }
 
     // 必填字段
     let uname: string = stripEmTags(safeStr(item['uname'], ''));
@@ -214,11 +228,6 @@ export async function searchUsers(keyword: string, page: number = 1): Promise<Us
 /**
  * 搜索专栏
  *
- * 调用 B 站分类搜索接口（search_type=article），返回 ArticleCard 数组。
- *
- * 注意：专栏搜索结果不含作者昵称字段，upName 会为空，
- *       可通过 mid 调用 UserApi 补充。
- *
  * @param keyword 搜索关键词（必填，空字符串返回空数组）
  * @param page    页码（从 1 开始，默认 1）
  * @returns ArticleCard[] 专栏卡片列表
@@ -228,7 +237,9 @@ export async function searchArticles(keyword: string, page: number = 1): Promise
   if (!kw) {
     return [];
   }
-  if (page < 1) page = 1;
+  if (page < 1) {
+    page = 1;
+  }
 
   console.info('[SearchApi] searchArticles keyword=' + kw + ' page=' + page);
 
@@ -258,7 +269,9 @@ export async function searchArticles(keyword: string, page: number = 1): Promise
     let item: Record<string, Object> = rawResults[i] as Record<string, Object>;
 
     let type: string = safeStr(item['type'], '');
-    if (type !== 'article') continue;
+    if (type !== 'article') {
+      continue;
+    }
 
     let title: string = stripEmTags(safeStr(item['title'], ''));
     let view: number = safeNum(item['view'], 0);

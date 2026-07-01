@@ -16,7 +16,6 @@ export struct UserCardComponent {
   /** 基准字号（默认 14），头像、等级图标、边距等均跟随缩放 */
   @Prop baseFontSize: number = 14;
   @Prop color?: string = '';
-
   // 计算大小
   s = this.baseFontSize / 14;
   avatarW = 36 * this.s;
@@ -25,7 +24,9 @@ export struct UserCardComponent {
   cardH = 56 * this.s;
 
   toThumb(url: string): string {
-    if (url.indexOf('@') === -1) return url + '@35w_35h';
+    if (url.indexOf('@') === -1) {
+      return url + '@35w_35h';
+    }
     return url;
   }
 
@@ -51,7 +52,7 @@ export struct UserCardComponent {
             .fontWeight(FontWeight.Medium)
             .lineHeight(this.baseFontSize * 18 / 14)
             .maxLines(1)
-            .constraintSize({ maxWidth: 122})
+            .constraintSize({ maxWidth: 122 })
             .textOverflow({ overflow: TextOverflow.MARQUEE })
 
           // 等级图标（有 level 属性时才显示）
@@ -80,11 +81,12 @@ export struct UserCardComponent {
     }
     .width('100%')
     .height(this.cardH)
-    .backgroundColor(this.color !== null && this.color !== undefined && this.color !== '' ? this.color : 'rgba(22,22,22,0.8)')
+    .backgroundColor(
+      this.color !== null && this.color !== undefined && this.color !== '' ? this.color : 'rgba(22,22,22,0.8)')
     .borderRadius(10)
     .onClick(() => {
       console.info('[UserCard] 点击:', this.card.mid, this.card.name);
-      this.pageStack.pushPath({name: 'UserDetailPage', param: this.card})
+      this.pageStack.pushPath({ name: 'UserDetailPage', param: this.card })
     })
   }
 }

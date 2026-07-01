@@ -13,17 +13,6 @@ export struct VideoCardComponent {
 
   // ===== 工具方法 =====
 
-  /**
-   * 格式化播放量字符串（角标截断）
-   * 太长时截取前 4 位显示
-   */
-  private formatView(view: string): string {
-    if (view.length > 12) {
-      return view.substring(0, 4) + '..';
-    }
-    return view;
-  }
-
   // ===== 构建 =====
   build() {
     Column() {
@@ -51,7 +40,12 @@ export struct VideoCardComponent {
               .fontWeight(FontWeight.Medium)
           }
           .backgroundColor('#B0000000')
-          .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+          .padding({
+            left: 4,
+            right: 4,
+            top: 1,
+            bottom: 1
+          })
           .borderRadius(3)
           .position({ x: 3, y: 42 })
         }
@@ -103,11 +97,23 @@ export struct VideoCardComponent {
       .padding(8)
     }
     .width('100%')
-    .backgroundColor(this.color !== null && this.color !== undefined && this.color !== '' ? this.color : 'rgba(22,22,22,0.8)')
+    .backgroundColor(
+      this.color !== null && this.color !== undefined && this.color !== '' ? this.color : 'rgba(22,22,22,0.8)')
     .borderRadius(10)
     .onClick(() => {
       console.info('[VideoCard] 点击:', this.card.title, this.card.bvid);
-      this.pageStack.pushPath({name: 'VideoDetail', param: this.card})
+      this.pageStack.pushPath({ name: 'VideoDetail', param: this.card })
     })
+  }
+
+  /**
+   * 格式化播放量字符串（角标截断）
+   * 太长时截取前 4 位显示
+   */
+  private formatView(view: string): string {
+    if (view.length > 12) {
+      return view.substring(0, 4) + '..';
+    }
+    return view;
   }
 }

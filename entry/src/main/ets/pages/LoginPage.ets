@@ -1,14 +1,21 @@
 /**
  * 扫码登录页面（NavDestination）
- * 参考 QRLoginFragment.java + LoginActivity.java
  *
  * 取消按钮逻辑：
  *   页面栈内只有本页 → pop() 回到推荐页
  *   页面栈内有多页    → pop() 出栈
  */
 
-import { checkCookies, generateQRCode, pollLoginState, saveLoginCookies, restoreCookiesFromStorage, requestSSOs, PollResult,
-  checkCookieRefreshIfNeeded } from '../api/LoginApi';
+import {
+  checkCookies,
+  generateQRCode,
+  pollLoginState,
+  saveLoginCookies,
+  restoreCookiesFromStorage,
+  requestSSOs,
+  PollResult,
+  checkCookieRefreshIfNeeded
+} from '../api/LoginApi';
 
 const POLL_INTERVAL: number = 2000;
 const QR_EXPIRE_MS: number = 180000;
@@ -16,13 +23,11 @@ const QR_EXPIRE_MS: number = 180000;
 @Component
 export struct LoginPage {
   @Consume('pageStack') pageStack: NavPathStack;
-
   @State qrUrl: string = '';
   @State statusText: string = '获取二维码中...';
   @State isScanning: boolean = false;
   @State isExpired: boolean = false;
   @State isSuccess: boolean = false;
-
   private qrcodeKey: string = '';
   private timerId: number = -1;
   private startTime: number = 0;
@@ -36,6 +41,100 @@ export struct LoginPage {
   }
 
   // ===== QR 流程 =====
+
+  build() {
+    NavDestination() {
+      Column() {
+        List() {
+          // 标题
+          ListItem() {
+            Text('扫码登录')
+              .fontSize(18)
+              .fontColor('#EEEEEE')
+              .fontWeight(FontWeight.Bold)
+              .margin({ top: 10 })
+              .width('100%')
+              .textAlign(TextAlign.Center)
+          }
+
+          // 二维码
+          ListItem() {
+            Stack() {
+              if (this.qrUrl) {
+                QRCode(this.qrUrl)
+                  .width(150)
+                  .height(150)
+                  .backgroundColor('#FFFFFF')
+              } else {
+                LoadingProgress().width(36).height(36).color('#FB7299')
+              }
+
+              if (this.isSuccess) {
+                Column() {
+                  Text('✓').fontSize(64).fontColor('#FB7299').fontWeight(FontWeight.Bold)
+                  Text('登录成功，即将重启App').fontSize(16).fontColor('#FFFFFF').margin({ top: 8 })
+                }
+                .width(200)
+                .height(200)
+                .justifyContent(FlexAlign.Center)
+                .alignItems(HorizontalAlign.Center)
+                .backgroundColor('#CC000000')
+                .borderRadius(12)
+              }
+            }
+            .width('100%').height(170)
+            .align(Alignment.Center)
+            .margin({ bottom: 4 })
+          }
+          .align(Alignment.Center)
+
+          // 状态
+          ListItem() {
+            Text(this.statusText)
+              .fontSize(13)
+              .fontColor('#999999')
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .margin({ bottom: 4 })
+              .onClick(() => {
+                if (this.isExpired) {
+                  this.refreshQR();
+                }
+              })
+          }
+          .align(Alignment.Center)
+
+          ListItem() {
+            Row() {
+              Button('返回')
+                .fontSize(14)
+                .fontColor('#999999')
+                .backgroundColor('#2A2A2A')
+                .borderRadius(20)
+                .width(80)
+                .height(36)
+                .onClick(() => {
+                  this.exitLogin();
+                })
+            }
+            .width('100%')
+            .justifyContent(FlexAlign.Center)
+          }
+          .align(Alignment.Center)
+        }
+        .width('100%')
+        .height('100%')
+        .focusable(true)
+        .focusOnTouch(true)
+        .defaultFocus(true)
+      }
+      .width('100%').height('100%')
+    }
+    .width('100%')
+    .height('100%')
+    .hideBackButton(true)
+    .hideTitleBar(true)
+  }
 
   private async startQRLogin(): Promise<void> {
     try {
@@ -66,7 +165,9 @@ export struct LoginPage {
     this.isScanning = true;
 
     let poll: () => void = () => {
-      if (!this.isScanning) return;
+      if (!this.isScanning) {
+        return;
+      }
       if (Date.now() - this.startTime > QR_EXPIRE_MS) {
         this.statusText = '二维码已过期，点击刷新';
         this.isExpired = true;
@@ -138,99 +239,10 @@ export struct LoginPage {
     this.startQRLogin();
   }
 
+  // ===== UI =====
+
   private exitLogin(): void {
     this.stopPolling();
     this.pageStack.pop();
-  }
-
-  // ===== UI =====
-
-  build() {
-    NavDestination(){
-        Column() {
-          List(){
-            // 标题
-            ListItem() {
-              Text('扫码登录')
-                .fontSize(18)
-                .fontColor('#EEEEEE')
-                .fontWeight(FontWeight.Bold)
-                .margin({ top: 10 })
-                .width('100%')
-                .textAlign(TextAlign.Center)
-            }
-
-            // 二维码
-            ListItem() {
-              Stack() {
-                if (this.qrUrl) {
-                  QRCode(this.qrUrl)
-                    .width(150)
-                    .height(150)
-                    .backgroundColor('#FFFFFF')
-                } else {
-                  LoadingProgress().width(36).height(36).color('#FB7299')
-                }
-
-                if (this.isSuccess) {
-                  Column() {
-                    Text('✓').fontSize(64).fontColor('#FB7299').fontWeight(FontWeight.Bold)
-                    Text('登录成功，即将重启App').fontSize(16).fontColor('#FFFFFF').margin({ top: 8 })
-                  }
-                  .width(200).height(200)
-                  .justifyContent(FlexAlign.Center)
-                  .alignItems(HorizontalAlign.Center)
-                  .backgroundColor('#CC000000')
-                  .borderRadius(12)
-                }
-              }
-              .width('100%').height(170)
-              .align(Alignment.Center)
-              .margin({ bottom: 4 })
-            }
-            .align(Alignment.Center)
-            // 状态
-            ListItem() {
-              Text(this.statusText)
-                .fontSize(13)
-                .fontColor('#999999')
-                .width('100%')
-                .textAlign(TextAlign.Center)
-                .margin({ bottom: 4 })
-                .onClick(() => {
-                  if (this.isExpired) this.refreshQR();
-                })
-            }
-            .align(Alignment.Center)
-
-            ListItem() {
-              Row(){
-                Button('返回')
-                  .fontSize(14)
-                  .fontColor('#999999')
-                  .backgroundColor('#2A2A2A')
-                  .borderRadius(20)
-                  .width(80)
-                  .height(36)
-                  .onClick(() => {
-                    this.exitLogin();
-                  })
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.Center)
-            }
-            .align(Alignment.Center)
-        }
-        .width('100%').height('100%')
-        .focusable(true)
-        .focusOnTouch(true)
-        .defaultFocus(true)
-      }
-      .width('100%').height('100%')
-    }
-    .width('100%')
-    .height('100%')
-    .hideBackButton(true)
-    .hideTitleBar(true)
   }
 }

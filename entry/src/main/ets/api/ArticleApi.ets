@@ -26,7 +26,9 @@ import { VideoCard, ArticleCard } from '../model/ContentCard';
  * 处理 <p>、<br>、<img> 等内联块级标签时插入换行。
  */
 function stripHtmlTags(html: string): string {
-  if (!html) return '';
+  if (!html) {
+    return '';
+  }
   // 块级标签前后加换行
   let text: string = html
     .replace(/<\/?p[^>]*>/gi, '\n')
@@ -174,7 +176,9 @@ export async function getOpus(id: number): Promise<Opus | null> {
           // 直接尝试将 opus 整个作为 detail 解析
           console.warn('[ArticleApi] getOpus opus.detail 也不存在，尝试直接使用 opusState');
           const fallbackOpus: Opus | null = tryParseFlatOpus(id, opusState);
-          if (fallbackOpus) return fallbackOpus;
+          if (fallbackOpus) {
+            return fallbackOpus;
+          }
         }
       }
     }
@@ -185,11 +189,13 @@ export async function getOpus(id: number): Promise<Opus | null> {
       console.error('[ArticleApi] getOpus 未找到 detail/opus.detail，INITIAL_STATE 顶层 key: ' + allKeys.join(', '));
       if (allKeys.indexOf('readerData') >= 0) {
         console.error('[ArticleApi] getOpus 存在 readerData（可能是旧版专栏阅读页）');
-        const readerData: Record<string, Object> | undefined = initState['readerData'] as Record<string, Object> | undefined;
+        const readerData: Record<string, Object> | undefined =
+          initState['readerData'] as Record<string, Object> | undefined;
         if (readerData) {
           const rdKeys: string[] = Object.keys(readerData);
           console.error('[ArticleApi] getOpus readerData 子 key: ' + rdKeys.join(', '));
-          const article: Record<string, Object> | undefined = readerData['article'] as Record<string, Object> | undefined;
+          const article: Record<string, Object> | undefined =
+            readerData['article'] as Record<string, Object> | undefined;
           if (article) {
             console.error('[ArticleApi] getOpus readerData.article 存在，尝试转换为 Opus');
             const fallbackOpus: Opus = new Opus();
@@ -238,9 +244,11 @@ export async function getOpus(id: number): Promise<Opus | null> {
             }
           }
           // 统计
-          const readViewInfo: Record<string, Object> | undefined = initState['readViewInfo'] as Record<string, Object> | undefined;
+          const readViewInfo: Record<string, Object> | undefined =
+            initState['readViewInfo'] as Record<string, Object> | undefined;
           if (readViewInfo) {
-            const stats2: Record<string, Object> | undefined = readViewInfo['stats'] as Record<string, Object> | undefined;
+            const stats2: Record<string, Object> | undefined =
+              readViewInfo['stats'] as Record<string, Object> | undefined;
             if (stats2) {
               riOpus.stats.view = (stats2['view'] as number) ?? 0;
               riOpus.stats.like = (stats2['like'] as number) ?? 0;
@@ -250,7 +258,8 @@ export async function getOpus(id: number): Promise<Opus | null> {
               riOpus.stats.reply = (stats2['reply'] as number) ?? 0;
             }
           }
-          const articleStats: Record<string, Object> | undefined = initState['articleStats'] as Record<string, Object> | undefined;
+          const articleStats: Record<string, Object> | undefined =
+            initState['articleStats'] as Record<string, Object> | undefined;
           if (articleStats) {
             riOpus.stats.liked = (articleStats['like'] as boolean) ?? false;
             riOpus.stats.favoured = (articleStats['favorite'] as boolean) ?? false;
@@ -281,7 +290,7 @@ async function fetchPage(url: string): Promise<string> {
     req.request(url, {
       method: http.RequestMethod.GET,
       header: {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; HarmonyOS; BiliTerm) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.95 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; HarmonyOS) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.95 Safari/537.36',
         'Referer': 'https://www.bilibili.com/',
       },
       connectTimeout: 10000,
@@ -356,7 +365,8 @@ function tryParseFlatOpus(id: number, opusState: Record<string, Object>): Opus |
   const content: string = (opusState['content'] as string) ?? (opusState['body'] as string) ?? '';
   const title: string = opus.title;
   if (content) {
-    console.info('[ArticleApi] tryParseFlatOpus 原始 content 长度=' + content.length + ' 前32字符=' + content.substring(0, 32));
+    console.info(
+      '[ArticleApi] tryParseFlatOpus 原始 content 长度=' + content.length + ' 前32字符=' + content.substring(0, 32));
     // 判断是 HTML 还是纯文本
     if (/<[a-zA-Z!][^>]*>/.test(content)) {
       opus.paragraphs = parseHtmlToParagraphs(content);
@@ -412,7 +422,8 @@ function parseOpusDetail(id: number, detail: Record<string, Object>): Opus {
   }
 
   // --- modules ---
-  const modules: Array<Record<string, Object>> | undefined = detail['modules'] as Array<Record<string, Object>> | undefined;
+  const modules: Array<Record<string, Object>> | undefined =
+    detail['modules'] as Array<Record<string, Object>> | undefined;
   if (!modules || modules.length === 0) {
     return opus;
   }
@@ -443,8 +454,12 @@ function parseOpusDetail(id: number, detail: Record<string, Object>): Opus {
   }
 
   // 保证空安全
-  if (!opus.upInfo) opus.upInfo = new UserCard();
-  if (!opus.stats) opus.stats = new ArticleStats();
+  if (!opus.upInfo) {
+    opus.upInfo = new UserCard();
+  }
+  if (!opus.stats) {
+    opus.stats = new ArticleStats();
+  }
 
   return opus;
 }
@@ -460,24 +475,36 @@ function parseTitleModule(module: Record<string, Object>, opus: Opus): void {
 /** 解析 MODULE_TYPE_TOP（顶部图片组） */
 function parseTopModule(module: Record<string, Object>, opus: Opus): void {
   const top: Record<string, Object> | undefined = module['module_top'] as Record<string, Object> | undefined;
-  if (!top) return;
+  if (!top) {
+    return;
+  }
 
   const display: Record<string, Object> | undefined = top['display'] as Record<string, Object> | undefined;
-  if (!display) return;
+  if (!display) {
+    return;
+  }
 
   const displayType: number = (display['type'] as number) ?? 0;
-  if (displayType !== 1) return; // 1 = 相册类型
+  if (displayType !== 1) {
+    return;
+  } // 1 = 相册类型
 
   const album: Record<string, Object> | undefined = display['album'] as Record<string, Object> | undefined;
-  if (!album) return;
+  if (!album) {
+    return;
+  }
 
   const pics: Array<Record<string, Object>> | undefined = album['pics'] as Array<Record<string, Object>> | undefined;
-  if (!pics) return;
+  if (!pics) {
+    return;
+  }
 
   const topImages: string[] = [];
   for (let i: number = 0; i < pics.length; i++) {
     const url: string = (pics[i]['url'] as string) ?? '';
-    if (url) topImages.push(url);
+    if (url) {
+      topImages.push(url);
+    }
   }
   opus.topImages = topImages;
 }
@@ -485,7 +512,9 @@ function parseTopModule(module: Record<string, Object>, opus: Opus): void {
 /** 解析 MODULE_TYPE_AUTHOR（UP 主信息） */
 function parseAuthorModule(module: Record<string, Object>, opus: Opus): void {
   const author: Record<string, Object> | undefined = module['module_author'] as Record<string, Object> | undefined;
-  if (!author) return;
+  if (!author) {
+    return;
+  }
 
   const card: UserCard = new UserCard(
     (author['name'] as string) ?? '',
@@ -509,10 +538,15 @@ function parseAuthorModule(module: Record<string, Object>, opus: Opus): void {
 /** 解析 MODULE_TYPE_CONTENT（正文段落） */
 function parseContentModule(module: Record<string, Object>, opus: Opus): void {
   const content: Record<string, Object> | undefined = module['module_content'] as Record<string, Object> | undefined;
-  if (!content) return;
+  if (!content) {
+    return;
+  }
 
-  const paragraphs: Array<Record<string, Object>> | undefined = content['paragraphs'] as Array<Record<string, Object>> | undefined;
-  if (!paragraphs) return;
+  const paragraphs: Array<Record<string, Object>> | undefined =
+    content['paragraphs'] as Array<Record<string, Object>> | undefined;
+  if (!paragraphs) {
+    return;
+  }
 
   opus.paragraphs = parseParagraphs(paragraphs);
 
@@ -524,7 +558,9 @@ function parseContentModule(module: Record<string, Object>, opus: Opus): void {
     const para: Record<string, Object> = paragraphs[pi];
     if ((para['para_type'] as number) === ParagraphType.TEXT_OPUS) {
       const data: Array<Record<string, Object>> | undefined = para['data'] as Array<Record<string, Object>> | undefined;
-      if (!data) continue;
+      if (!data) {
+        continue;
+      }
       for (let ni: number = 0; ni < data.length; ni++) {
         const node: Record<string, Object> = data[ni];
         const nodeType: string = (node['type'] as string) ?? '';
@@ -532,7 +568,6 @@ function parseContentModule(module: Record<string, Object>, opus: Opus): void {
           const emoji: Record<string, Object> | undefined = node['emoji'] as Record<string, Object> | undefined;
           if (emoji) {
             let emojiText: string = (emoji['text'] as string) ?? '';
-            // ⚠️ API 返回的 emoji.text 带方括号 "[doge]"，去掉括号便于 UI 按捕获组查找
             if (emojiText.length >= 2 && emojiText.startsWith('[') && emojiText.endsWith(']')) {
               emojiText = emojiText.substring(1, emojiText.length - 1);
             }
@@ -545,7 +580,9 @@ function parseContentModule(module: Record<string, Object>, opus: Opus): void {
         } else if (nodeType === 'RICH_TEXT_NODE_TYPE_AT') {
           const rid: number = Number(node['rid'] ?? 0);
           let uname: string = (node['text'] as string) ?? '';
-          if (uname.startsWith('@')) uname = uname.substring(1);
+          if (uname.startsWith('@')) {
+            uname = uname.substring(1);
+          }
           uname = uname.trim();
           if (uname && rid > 0) {
             memberMap.set(uname, new UserCard(uname, '', rid));
@@ -561,7 +598,9 @@ function parseContentModule(module: Record<string, Object>, opus: Opus): void {
 /** 解析 MODULE_TYPE_STAT（统计数据） */
 function parseStatModule(module: Record<string, Object>, opus: Opus): void {
   const stat: Record<string, Object> | undefined = module['module_stat'] as Record<string, Object> | undefined;
-  if (!stat) return;
+  if (!stat) {
+    return;
+  }
 
   const stats: ArticleStats = new ArticleStats();
 
@@ -792,7 +831,8 @@ function parseArticleResponse(cvid: number, data: Record<string, Object>): Artic
   if (rawContent) {
     const trimmed: string = rawContent.trim();
     const firstCh: string = trimmed.charAt(0);
-    console.info('[ArticleApi] parseArticleResponse: 格式检测 firstCh="' + firstCh + '" 前32字符=' + rawContent.substring(0, 32));
+    console.info(
+      '[ArticleApi] parseArticleResponse: 格式检测 firstCh="' + firstCh + '" 前32字符=' + rawContent.substring(0, 32));
 
     if (firstCh === '[') {
       // Opus 段落 JSON 数组：[{"para_type":1,...},...]
@@ -815,14 +855,16 @@ function parseArticleResponse(cvid: number, data: Record<string, Object>): Artic
     } else if (firstCh === '<' || firstCh === '\n') {
       // HTML 格式
       const contentLen: number = rawContent.length;
-      console.info('[ArticleApi] parseArticleResponse HTML 格式: 长度=' + contentLen + ' 前64字符=' + rawContent.substring(0, 64));
+      console.info(
+        '[ArticleApi] parseArticleResponse HTML 格式: 长度=' + contentLen + ' 前64字符=' + rawContent.substring(0, 64));
       info.paragraphs = parseHtmlToParagraphs(rawContent);
       console.info('[ArticleApi] parseArticleResponse HTML 解析出 ' + info.paragraphs.length + ' 个段落');
     } else {
       // 未知格式，尝试 HTML 解析
       console.warn('[ArticleApi] parseArticleResponse 未知格式（firstCh="' + firstCh + '"），尝试 HTML 解析');
       const contentLen: number = rawContent.length;
-      console.info('[ArticleApi] parseArticleResponse rawContent 长度=' + contentLen + ' 前128字符=' + rawContent.substring(0, 128));
+      console.info('[ArticleApi] parseArticleResponse rawContent 长度=' + contentLen + ' 前128字符=' +
+        rawContent.substring(0, 128));
       info.paragraphs = parseHtmlToParagraphs(rawContent);
       console.info('[ArticleApi] parseArticleResponse HTML 降级解析出 ' + info.paragraphs.length + ' 个段落');
     }
@@ -880,7 +922,9 @@ function parseArticleViewInfoResponse(cvid: number, data: Record<string, Object>
  */
 export function parseHtmlToParagraphs(html: string): ArticleParagraph[] {
   const result: ArticleParagraph[] = [];
-  if (!html) return result;
+  if (!html) {
+    return result;
+  }
 
   // 按 <p> 标签分割段落
   const pBlockRe: RegExp = /<p[^>]*>([\s\S]*?)<\/p>/gi;
@@ -901,7 +945,9 @@ export function parseHtmlToParagraphs(html: string): ArticleParagraph[] {
       const imgMatch: RegExpExecArray | null = /<img[^>]*src=["']([^"']+)["'][^>]*>/i.exec(pContent);
       if (imgMatch) {
         let imgUrl: string = imgMatch[1];
-        if (!imgUrl.startsWith('http')) imgUrl = 'https:' + imgUrl;
+        if (!imgUrl.startsWith('http')) {
+          imgUrl = 'https:' + imgUrl;
+        }
         console.info('[ArticleApi] parseHtmlToParagraphs img url=' + imgUrl);
         result.push(new ArticleParagraph(ParagraphType.PIC, 0, [imgUrl]));
       } else {
@@ -910,7 +956,9 @@ export function parseHtmlToParagraphs(html: string): ArticleParagraph[] {
         const altImgMatch: RegExpExecArray | null = /<img[^>]*src=([^\s>]+)/i.exec(pContent);
         if (altImgMatch) {
           let imgUrl: string = altImgMatch[1].replace(/['"]/g, '');
-          if (!imgUrl.startsWith('http')) imgUrl = 'https:' + imgUrl;
+          if (!imgUrl.startsWith('http')) {
+            imgUrl = 'https:' + imgUrl;
+          }
           console.info('[ArticleApi] parseHtmlToParagraphs alt img url=' + imgUrl);
           result.push(new ArticleParagraph(ParagraphType.PIC, 0, [imgUrl]));
         }
@@ -947,7 +995,9 @@ export function parseHtmlToParagraphs(html: string): ArticleParagraph[] {
     if (result[si].isImage()) {
       const urls: string[] = result[si].getPictures();
       for (let uj: number = 0; uj < urls.length; uj++) {
-        if (urls[uj]) seenUrls.add(urls[uj]);
+        if (urls[uj]) {
+          seenUrls.add(urls[uj]);
+        }
       }
     }
   }
@@ -959,7 +1009,9 @@ export function parseHtmlToParagraphs(html: string): ArticleParagraph[] {
     const imgInFig: RegExpExecArray | null = /<img[^>]*src=["']?([^"'\s>]+)["']?[^>]*>/i.exec(figContent);
     if (imgInFig) {
       let imgUrl: string = imgInFig[1];
-      if (!imgUrl.startsWith('http')) imgUrl = 'https:' + imgUrl;
+      if (!imgUrl.startsWith('http')) {
+        imgUrl = 'https:' + imgUrl;
+      }
       if (!seenUrls.has(imgUrl)) {
         seenUrls.add(imgUrl);
         console.info('[ArticleApi] parseHtmlToParagraphs figure img url=' + imgUrl);
@@ -973,7 +1025,9 @@ export function parseHtmlToParagraphs(html: string): ArticleParagraph[] {
   let globalImg: RegExpExecArray | null;
   while ((globalImg = globalImgRe.exec(html)) !== null) {
     let imgUrl: string = globalImg[1];
-    if (!imgUrl.startsWith('http')) imgUrl = 'https:' + imgUrl;
+    if (!imgUrl.startsWith('http')) {
+      imgUrl = 'https:' + imgUrl;
+    }
     // 在 ArkTS 中 Set.has 需要 explicit check
     const alreadyHas: boolean = seenUrls.has(imgUrl);
     if (!alreadyHas) {
@@ -983,9 +1037,13 @@ export function parseHtmlToParagraphs(html: string): ArticleParagraph[] {
       // 安全限制：最多 50 张图
       let imgCount: number = 0;
       for (let ci: number = 0; ci < result.length; ci++) {
-        if (result[ci].isImage()) imgCount++;
+        if (result[ci].isImage()) {
+          imgCount++;
+        }
       }
-      if (imgCount > 50) break;
+      if (imgCount > 50) {
+        break;
+      }
     }
   }
 
@@ -1073,9 +1131,14 @@ function parseSingleParagraph(json: Record<string, Object>): ArticleParagraph {
 
 /** 解析普通文本段落节点 */
 function parseTextContent(textObj: Record<string, Object> | undefined): string {
-  if (!textObj) return '';
-  const nodes: Array<Record<string, Object>> | undefined = textObj['nodes'] as Array<Record<string, Object>> | undefined;
-  if (!nodes) return '';
+  if (!textObj) {
+    return '';
+  }
+  const nodes: Array<Record<string, Object>> | undefined =
+    textObj['nodes'] as Array<Record<string, Object>> | undefined;
+  if (!nodes) {
+    return '';
+  }
 
   let text: string = '';
   for (let i: number = 0; i < nodes.length; i++) {
@@ -1108,11 +1171,15 @@ function parseTextContent(textObj: Record<string, Object> | undefined): string {
 
 /** 解析引用块节点 */
 function parseBlockquoteContent(blockquote: Record<string, Object> | undefined): string {
-  if (!blockquote) return '';
+  if (!blockquote) {
+    return '';
+  }
 
   const children: Array<Record<string, Object>> | undefined
     = blockquote['children'] as Array<Record<string, Object>> | undefined;
-  if (!children) return '';
+  if (!children) {
+    return '';
+  }
 
   let text: string = '';
   for (let i: number = 0; i < children.length; i++) {
@@ -1129,7 +1196,9 @@ function parseBlockquoteContent(blockquote: Record<string, Object> | undefined):
 
 /** 解析列表节点 */
 function parseListContent(listObj: Record<string, Object> | undefined): string {
-  if (!listObj) return '';
+  if (!listObj) {
+    return '';
+  }
 
   const listStyle: number = (listObj['style'] as number) ?? ListStyle.DOT;
   let text: string = '';
@@ -1139,7 +1208,9 @@ function parseListContent(listObj: Record<string, Object> | undefined): string {
     = listObj['items'] as Array<Record<string, Object>> | undefined;
   if (items) {
     for (let i: number = 0; i < items.length; i++) {
-      if (i > 0) text += '\n';
+      if (i > 0) {
+        text += '\n';
+      }
       if (listStyle === ListStyle.NUMBER) {
         text += String((items[i]['order'] as number) ?? (i + 1)) + '. ';
       } else {
@@ -1154,7 +1225,9 @@ function parseListContent(listObj: Record<string, Object> | undefined): string {
     = listObj['children'] as Array<Record<string, Object>> | undefined;
   if (children) {
     for (let i: number = 0; i < children.length; i++) {
-      if (text.length > 0) text += '\n';
+      if (text.length > 0) {
+        text += '\n';
+      }
       if (listStyle === ListStyle.NUMBER) {
         text += String((children[i]['order'] as number) ?? (i + 1)) + '. ';
       } else {
@@ -1180,11 +1253,15 @@ function parseListContent(listObj: Record<string, Object> | undefined): string {
 
 /** 解析图片段落 */
 function parsePictureContent(picObj: Record<string, Object> | undefined): string[] {
-  if (!picObj) return [];
+  if (!picObj) {
+    return [];
+  }
 
   const pics: Array<Record<string, Object>> | undefined
     = picObj['pics'] as Array<Record<string, Object>> | undefined;
-  if (!pics) return [];
+  if (!pics) {
+    return [];
+  }
 
   const urls: string[] = [];
   for (let i: number = 0; i < pics.length; i++) {
@@ -1192,16 +1269,22 @@ function parsePictureContent(picObj: Record<string, Object> | undefined): string
     if (url && !url.startsWith('http')) {
       url = 'https:' + url;
     }
-    if (url) urls.push(url);
+    if (url) {
+      urls.push(url);
+    }
   }
   return urls;
 }
 
 /** 解析分割线段落 */
 function parseDividerContent(lineObj: Record<string, Object> | undefined): string[] {
-  if (!lineObj) return [];
+  if (!lineObj) {
+    return [];
+  }
   const pic: Record<string, Object> | undefined = lineObj['pic'] as Record<string, Object> | undefined;
-  if (!pic) return [];
+  if (!pic) {
+    return [];
+  }
 
   let url: string = (pic['url'] as string) ?? '';
   if (url && !url.startsWith('http')) {
@@ -1212,7 +1295,9 @@ function parseDividerContent(lineObj: Record<string, Object> | undefined): strin
 
 /** 解析 Opus 富文本节点（@提及 / 表情 / 话题） */
 function parseOpusRichText(nodes: Array<Record<string, Object>> | undefined): string {
-  if (!nodes) return '';
+  if (!nodes) {
+    return '';
+  }
 
   let text: string = '';
   for (let i: number = 0; i < nodes.length; i++) {
@@ -1239,11 +1324,13 @@ function parseOpusRichText(nodes: Array<Record<string, Object>> | undefined): st
 
 /** 从 archive JSON 解析视频卡片 */
 function parseVideoCard(archive: Record<string, Object> | undefined): VideoCard | string {
-  if (!archive) return '[视频卡片]';
+  if (!archive) {
+    return '[视频卡片]';
+  }
   const vc: VideoCard = new VideoCard(
     (archive['title'] as string) ?? '',
     (archive['owner_name'] as string) ?? (archive['author_name'] as string) ?? '',
-    '',  // view 稍后填充
+    '', // view 稍后填充
     (archive['cover'] as string) ?? (archive['pic'] as string) ?? '',
     Number(archive['aid'] ?? 0),
     (archive['bvid'] as string) ?? ''
@@ -1258,10 +1345,14 @@ function parseVideoCard(archive: Record<string, Object> | undefined): VideoCard 
 
 /** 从 article JSON 解析关联专栏卡片 */
 function parseArticleCard(article: Record<string, Object> | undefined): ArticleCard | string {
-  if (!article) return '[关联专栏]';
+  if (!article) {
+    return '[关联专栏]';
+  }
   const covers: string[] = [];
   const cover: string = (article['cover'] as string) ?? (article['banner_url'] as string) ?? '';
-  if (cover) covers.push(cover);
+  if (cover) {
+    covers.push(cover);
+  }
   const ac: ArticleCard = new ArticleCard(
     (article['title'] as string) ?? '',
     (article['author_name'] as string) ?? (article['up_name'] as string) ?? '',
@@ -1437,8 +1528,12 @@ export class OpusIdMapping {
   id: number = 0;
 
   constructor(type?: number, id?: number) {
-    if (type !== undefined) this.type = type;
-    if (id !== undefined) this.id = id;
+    if (type !== undefined) {
+      this.type = type;
+    }
+    if (id !== undefined) {
+      this.id = id;
+    }
   }
 }
 

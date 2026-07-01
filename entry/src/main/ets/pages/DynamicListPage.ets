@@ -1,17 +1,13 @@
 import { DynamicSection } from "../components/DynamicSection";
 
 @Component
-export struct DynamicListPage{
+export struct DynamicListPage {
   @Consume('pageStack') pageStack: NavPathStack;
 
-  private showNavMenu(): void {
-    this.pageStack.pushPath({name:'Menu'});
-  }
-
   build() {
-    NavDestination(){
+    NavDestination() {
       this.HeaderBar()
-      DynamicSection({mid: 0})
+      DynamicSection({ mid: 0 })
     }
     .height('100%')
     .width('100%')
@@ -37,5 +33,9 @@ export struct DynamicListPage{
     .width('100%')
     .padding({ top: 8, bottom: 4 })
     .justifyContent(FlexAlign.Center)
+  }
+
+  private showNavMenu(): void {
+    this.pageStack.pushPath({ name: 'Menu' });
   }
 }

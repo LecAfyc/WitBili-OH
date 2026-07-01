@@ -41,7 +41,6 @@ export class Opus {
   id: number = 0;
   /** 作品类型（见 OpusType） */
   type: number = OpusType.DYNAMIC;
-
   // ===== 基础信息 =====
   /** 标题 */
   title: string = '';
@@ -53,21 +52,17 @@ export class Opus {
   pubTime: string = '';
   /** 发布时间（Unix 时间戳，秒） */
   ctime: number = 0;
-
   // ===== 发布者 =====
   /** UP 主信息 */
   upInfo: UserCard = new UserCard();
-
   // ===== 统计数据 =====
   /** 点赞/投币/收藏等统计 */
   stats: ArticleStats = new ArticleStats();
-
   // ===== 正文内容 =====
   /** 顶部图片列表（封面组图） */
   topImages: string[] = [];
   /** 正文段落数组 */
   paragraphs: ArticleParagraph[] = [];
-
   // ===== 富文本（Opus 图文动态的尾部描述） =====
   /**
    * Opus 图文类动态的富文本描述。
@@ -79,7 +74,6 @@ export class Opus {
   emoteMap: Map<string, string> = new Map();
   /** @用户名 → UserCard 的映射 */
   memberMap: Map<string, UserCard> = new Map();
-
   // ===== 评论区信息 =====
   /** 关联的评论区 ID */
   commentId: number = 0;
@@ -95,12 +89,26 @@ export class Opus {
     stats?: ArticleStats,
     pubTime?: string
   ) {
-    if (id !== undefined) this.id = id;
-    if (type !== undefined) this.type = type;
-    if (title !== undefined) this.title = title;
-    if (cover !== undefined) this.cover = cover;
-    if (upInfo !== undefined) this.upInfo = upInfo;
-    if (stats !== undefined) this.stats = stats;
-    if (pubTime !== undefined) this.pubTime = pubTime;
+    if (id !== undefined) {
+      this.id = id;
+    }
+    if (type !== undefined) {
+      this.type = type;
+    }
+    if (title !== undefined) {
+      this.title = title;
+    }
+    if (cover !== undefined) {
+      this.cover = cover;
+    }
+    if (upInfo !== undefined) {
+      this.upInfo = upInfo;
+    }
+    if (stats !== undefined) {
+      this.stats = stats;
+    }
+    if (pubTime !== undefined) {
+      this.pubTime = pubTime;
+    }
   }
 }

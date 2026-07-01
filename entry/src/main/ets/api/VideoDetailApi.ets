@@ -1,16 +1,6 @@
 /**
- * Bilibili 视频流地址 API（简化版）
+ * Bilibili 视频详情 API
  *
- * 去掉 DASH 解析，改为直接请求 durl 格式（音视频合一）。
- * API: GET /x/player/playurl?bvid=xxx&cid=xxx
- *
- * 参考 OhBili 项目：resp.data.durl[0].url.replace(/\\u0026/g, '&') → 直接喂给 IJKPlayer
- *
- * 接口文档（BAC Document）：
- *   - 视频基本信息:  https://api.bilibili.com/x/web-interface/view
- *   - 视频标签:      https://api.bilibili.com/x/web-interface/view/detail/tag
- *
- * 调用前需先完成登录（LoginApi），cookie 会自动跟随。
  */
 
 import { ApiResponse, httpGet, HEADERS } from './CommonApi';
@@ -18,26 +8,25 @@ import { UserCard } from '../model/UserCard';
 import { VideoCard } from '../model/ContentCard';
 import { VideoPage } from '../model/VideoPage';
 import { signWBI } from './WbiSign';
-import { data } from '@kit.TelephonyKit';
 
 // ===== 类型定义 =====
 
 /** 视频详情 API 完整返回，对应 VideoDetailPage 的全部 @State 资源 */
 export interface VideoDetailResult {
-  pageParam: VideoCard;       // title, cover, view(aid,bvid)
-  up: UserCard;               // name, headImage, mid
-  staff: Array<UserCard>;     // 合作成员列表（无合作时为空数组）
-  staffRoles: Array<string>;  // 合作成员角色称谓（与 staff 等长，一一对应）
+  pageParam: VideoCard; // title, cover, view(aid,bvid)
+  up: UserCard; // name, headImage, mid
+  staff: Array<UserCard>; // 合作成员列表（无合作时为空数组）
+  staffRoles: Array<string>; // 合作成员角色称谓（与 staff 等长，一一对应）
   danmakus: number;
-  time: number;               // 发布时间戳（秒）
-  duration: number;           // 视频总时长（秒）
-  tags: Array<string>;        // 标签名列表
-  desc: string;               // 简介（使用 desc 而非 desc_v2）
+  time: number; // 发布时间戳（秒）
+  duration: number; // 视频总时长（秒）
+  tags: Array<string>; // 标签名列表
+  desc: string; // 简介（使用 desc 而非 desc_v2）
   like: number;
   coin: number;
   favorite: number;
   share: number;
-  pages: Array<VideoPage>;    // 分P列表（无分P时长度为0）
+  pages: Array<VideoPage>; // 分P列表（无分P时长度为0）
 }
 
 /** 标签 API 返回的单个标签对象 */
@@ -69,12 +58,16 @@ interface PageRaw {
 export interface PlayUrlResult {
   /** 视频流 URL（durl 格式，音视频合一） */
   videoUrl: string;
+
   /** 弹幕 URL */
   danmakuUrl: string;
+
   /** 可用清晰度描述列表（如 ["高清 1080P", "高清 720P", ...]） */
   acceptDescription: string[];
+
   /** 可用清晰度值列表（如 [80, 64, 32]） */
   acceptQuality: number[];
+
   /** 续播进度（秒） */
   lastPlayTime: number;
 }
@@ -83,8 +76,6 @@ export interface PlayUrlResult {
 
 /**
  * 获取视频详细信息
- *
- * GET https://api.bilibili.com/x/web-interface/view
  *
  * @param bvid 稿件 bvid
  * @param aid  稿件 avid（与 bvid 二选一，优先使用 bvid）
@@ -154,10 +145,10 @@ export async function getVideoDetail(bvid?: string, aid?: number): Promise<Video
         p.duration || 0
       ));
     }
-  }else if(rawCid){
+  } else if (rawCid) {
     pagesArr.push(new VideoPage(rawCid || 0, 0, '', 0));
     console.info("[VideoDetailApi] cid=" + (rawCid || 0))
-  }else{
+  } else {
     console.warn("[VideoDetailApi] 无法获取视频cid")
   }
 
@@ -176,7 +167,7 @@ export async function getVideoDetail(bvid?: string, aid?: number): Promise<Video
   let pageParam: VideoCard = new VideoCard(
     (d['title'] as string) || '',
     up.name,
-    viewNum.toString(),     // view 是 string，转成字符串
+    viewNum.toString(), // view 是 string，转成字符串
     (d['pic'] as string) || '',
     aidNum,
     bvidStr
@@ -210,8 +201,6 @@ export async function getVideoDetail(bvid?: string, aid?: number): Promise<Video
 
 /**
  * 获取视频标签列表
- *
- * GET https://api.bilibili.com/x/web-interface/view/detail/tag?bvid=xxx
  *
  * 返回 tag_name 字符串数组，方便 UI 直接使用。
  */
@@ -247,21 +236,10 @@ export async function getVideoTags(bvid: string): Promise<Array<string>> {
 }
 
 
-// ===== 视频播放地址 API（durl 格式，无 DASH） =====
-
+// 这是durl版本视频链接获取，其实B站很少有这样的视频了
+// Dash解析请移步VideoStreamApi
 /**
  * 获取视频播放地址（durl 格式，音视频合一）
- *
- * GET https://api.bilibili.com/x/player/wbi/playurl?bvid=xxx&cid=xxx
- *
- * 使用 B 站新版 WBI 签名接口（2023 年后强制要求），
- * 返回 durl[] 格式（MP4 分片），标准播放器可直接播放。
- *
- * 参考 BAC Document:
- *   - 旧端: /x/player/playurl（已废弃，返回 403）
- *   - 新端: /x/player/wbi/playurl（需 WBI 签名）
- *   - 鉴权方式: Cookie(SESSDATA) + Wbi 签名
- *   - resp.data.durl[0].url.replace(/\\u0026/g, '&')
  *
  * @param bvid  稿件 bvid
  * @param cid   分P cid（必填）
@@ -272,7 +250,7 @@ export async function getVideoPlayUrl(bvid: string, cid: number): Promise<PlayUr
     + 'bvid=' + encodeURIComponent(bvid)
     + '&cid=' + cid.toString()
     + '&fnval=16'         // MP4 格式（durl）
-    + '&fourk=1';        // 允许 4K 画质
+    + '&fourk=1'; // 允许 4K 画质
 
   // 2. WBI 签名（强制要求）
   let signedUrl: string = await signWBI(url);
@@ -338,7 +316,7 @@ export async function getVideoQualities(bvid: string, cid: number): Promise<Arra
     throw new Error('获取清晰度列表失败: data 为空');
   }
 
-  console.info("[getVideoQualities] resp.data = "+ JSON.stringify(dataObj))
+  console.info("[getVideoQualities] resp.data = " + JSON.stringify(dataObj))
   let descriptions: string[] = dataObj['accept_description'] as string[] || [];
   let qualities: number[] = dataObj['accept_quality'] as number[] || [];
 

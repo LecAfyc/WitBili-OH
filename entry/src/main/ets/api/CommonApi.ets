@@ -1,11 +1,6 @@
 /**
- * Bilibili API 通用 HTTP 工具
+ * 通用工具
  *
- * 所有 API 模块共享的基础方法：
- * - httpGet / httpPost / httpPostForm
- * - 安全 JSON 解析
- * - 默认请求头
- * - Cookie 提取回调
  */
 
 import { http } from '@kit.NetworkKit';
@@ -71,7 +66,8 @@ export function bv2av(bvid: string): number {
   bvidArr[4] = bvidArr[7];
   bvidArr[7] = temp2;
   bvidArr.splice(0, 3);
-  const tmp: bigint = bvidArr.reduce((pre: bigint, bvidChar: string) => pre * BASE + BigInt(data.indexOf(bvidChar)), BigInt(0));
+  const tmp: bigint =
+    bvidArr.reduce((pre: bigint, bvidChar: string) => pre * BASE + BigInt(data.indexOf(bvidChar)), BigInt(0));
   return Number((tmp & MASK_CODE) ^ XOR_CODE);
 }
 
@@ -142,16 +138,22 @@ export function formatCount(n: number): string {
 export interface RequestOptions {
   /** 自定义请求头（与默认 HEADERS 合并） */
   headers?: Record<string, string>;
+
   /** 连接超时（毫秒，默认 10000） */
   connectTimeout?: number;
+
   /** 读取超时（毫秒，默认 15000） */
   readTimeout?: number;
+
   /** POST body */
   extraData?: string;
+
   /** 强制指定 Content-Type */
   contentType?: string;
+
   /** 响应头回调（如 LoginApi 提取 Cookie） */
   onHeaders?: (headers: Record<string, Object>) => void;
+
   /** 自定义日志标签（默认 "[HTTP]"） */
   logTag?: string;
 }
@@ -168,7 +170,8 @@ function copyRecord(src: Record<string, string>): Record<string, string> {
   return result;
 }
 
-function mergeHeaders(base: Record<string, string>, extra?: Record<string, string>, contentType?: string): Record<string, string> {
+function mergeHeaders(base: Record<string, string>, extra?: Record<string, string>,
+  contentType?: string): Record<string, string> {
   let result: Record<string, string> = copyRecord(base);
   if (extra) {
     let keys: string[] = Object.keys(extra);
@@ -422,14 +425,17 @@ interface RsaPubKey {
 }
 
 // RSA 公钥（B 站固定密钥）
-const RSA_PUBLIC_KEY_B64: string = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0EgUc/prcajMKXvkCKFCWhJYJcLkcM2DKKcSeFpD/j6Boy538YXnR6VhcuUJOhH2x71nzPjfdTcqMz7djHum0qSZA0AyCBDABUqCrfNgCiJ00Ra7GmRj+YCK1NJEuewlb40JNrRuoEUXpabUzGB8QIDAQAB';
+const RSA_PUBLIC_KEY_B64: string =
+  'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0EgUc/prcajMKXvkCKFCWhJYJcLkcM2DKKcSeFpD/j6Boy538YXnR6VhcuUJOhH2x71nzPjfdTcqMz7djHum0qSZA0AyCBDABUqCrfNgCiJ00Ra7GmRj+YCK1NJEuewlb40JNrRuoEUXpabUzGB8QIDAQAB';
 
 /** base16/hex 编码 */
 function base16Encode(src: Uint8Array): string {
   let hex: string = '';
   for (let i: number = 0; i < src.length; i++) {
     let b: number = src[i];
-    if ((b & 0xff) < 0x10) hex += '0';
+    if ((b & 0xff) < 0x10) {
+      hex += '0';
+    }
     hex += (b & 0xff).toString(16);
   }
   return hex;
@@ -438,7 +444,9 @@ function base16Encode(src: Uint8Array): string {
 /** 跳过 DER TLV 的长度字节，返回内容数据起始位置 */
 function skipDerLength(buf: Uint8Array, pos: number): number {
   let len: number = buf[pos];
-  if (len < 0x80) return pos + 1;
+  if (len < 0x80) {
+    return pos + 1;
+  }
   let numBytes: number = len & 0x7F;
   return pos + 1 + numBytes;
 }
@@ -446,7 +454,9 @@ function skipDerLength(buf: Uint8Array, pos: number): number {
 /** 读取 DER 长度值 */
 function readDerLength(buf: Uint8Array, pos: number): number {
   let len: number = buf[pos];
-  if (len < 0x80) return len;
+  if (len < 0x80) {
+    return len;
+  }
   let numBytes: number = len & 0x7F;
   let value: number = 0;
   for (let i: number = 1; i <= numBytes; i++) {
@@ -458,7 +468,9 @@ function readDerLength(buf: Uint8Array, pos: number): number {
 /** 计算 DER 长度字段占用的字节数 */
 function derLengthBytes(buf: Uint8Array, pos: number): number {
   let len: number = buf[pos];
-  if (len < 0x80) return 1;
+  if (len < 0x80) {
+    return 1;
+  }
   return 1 + (len & 0x7F);
 }
 
@@ -468,24 +480,34 @@ function derLengthBytes(buf: Uint8Array, pos: number): number {
 function parseRsaPubKeyDer(der: Uint8Array): RsaPubKey {
   let i: number = 0;
   // SPKI SEQUENCE
-  if (der[i++] !== 0x30) throw new Error('Bad SPKI: expected SEQUENCE');
+  if (der[i++] !== 0x30) {
+    throw new Error('Bad SPKI: expected SEQUENCE');
+  }
   i = skipDerLength(der, i);
 
   // AlgorithmIdentifier SEQUENCE — 跳过整个 TLV
-  if (der[i++] !== 0x30) throw new Error('Bad SPKI: expected AlgorithmIdentifier');
+  if (der[i++] !== 0x30) {
+    throw new Error('Bad SPKI: expected AlgorithmIdentifier');
+  }
   let algLen: number = readDerLength(der, i);
   i += derLengthBytes(der, i) + algLen;
 
   // BIT STRING
-  if (der[i++] !== 0x03) throw new Error('Bad SPKI: expected BIT STRING');
+  if (der[i++] !== 0x03) {
+    throw new Error('Bad SPKI: expected BIT STRING');
+  }
   i += derLengthBytes(der, i) + 1; // +1 跳过 unused bits 字节
 
   // RSAPublicKey SEQUENCE
-  if (der[i++] !== 0x30) throw new Error('Bad RSA key: expected SEQUENCE');
+  if (der[i++] !== 0x30) {
+    throw new Error('Bad RSA key: expected SEQUENCE');
+  }
   i = skipDerLength(der, i);
 
   // INTEGER (modulus n)
-  if (der[i++] !== 0x02) throw new Error('Bad RSA key: expected INTEGER');
+  if (der[i++] !== 0x02) {
+    throw new Error('Bad RSA key: expected INTEGER');
+  }
   let nLen: number = readDerLength(der, i);
   i += derLengthBytes(der, i);
   let n: bigint = 0n;
@@ -495,7 +517,9 @@ function parseRsaPubKeyDer(der: Uint8Array): RsaPubKey {
   i += nLen;
 
   // INTEGER (exponent e)
-  if (der[i++] !== 0x02) throw new Error('Bad RSA key: expected INTEGER');
+  if (der[i++] !== 0x02) {
+    throw new Error('Bad RSA key: expected INTEGER');
+  }
   let eLen: number = readDerLength(der, i);
   i += derLengthBytes(der, i);
   let e: bigint = 0n;
@@ -534,11 +558,15 @@ async function mgf1Sha256(seed: Uint8Array, maskLen: number): Promise<Uint8Array
 
 /** 模幂运算（快速幂） */
 function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
-  if (mod === 1n) return 0n;
+  if (mod === 1n) {
+    return 0n;
+  }
   let result: bigint = 1n;
   base = base % mod;
   while (exp > 0n) {
-    if (exp % 2n === 1n) result = (result * base) % mod;
+    if (exp % 2n === 1n) {
+      result = (result * base) % mod;
+    }
     exp = exp >> 1n;
     base = (base * base) % mod;
   }
@@ -547,11 +575,10 @@ function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
 
 /**
  * RSA OAEP-SHA256 加密（纯 TypeScript 实现）
- * 参考 PKCS#1 v2.2: RFC 8017 Section 7.1
  */
 async function rsaOaepEncrypt(message: Uint8Array, n: bigint, e: bigint): Promise<Uint8Array> {
-  const hLen: number = 32;          // SHA-256 输出长度
-  const k: number = 128;            // 1024 位 RSA 模数字节数
+  const hLen: number = 32; // SHA-256 输出长度
+  const k: number = 128; // 1024 位 RSA 模数字节数
   const mLen: number = message.length;
 
   if (mLen > k - 2 * hLen - 2) {
@@ -566,48 +593,37 @@ async function rsaOaepEncrypt(message: Uint8Array, n: bigint, e: bigint): Promis
     0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55
   ]);
 
-  // 2. 生成随机种子 seed
   let seed: Uint8Array = new Uint8Array(hLen);
   for (let i: number = 0; i < hLen; i++) {
     seed[i] = Math.floor(Math.random() * 256);
   }
-  // 3. 构造 DB = lHash || PS || 0x01 || M
-  let psLen: number = k - mLen - 2 * hLen - 2;   // PS 的长度
-  let db: Uint8Array = new Uint8Array(k - hLen - 1);  // 总长度 95
+  let psLen: number = k - mLen - 2 * hLen - 2;
+  let db: Uint8Array = new Uint8Array(k - hLen - 1);
   let off: number = 0;
-  // 写入 lHash (32 字节)
   db.set(lHash, off);
   off += hLen;
-  // 写入 PS（全 0）
   for (let i = 0; i < psLen; i++) {
     db[off++] = 0x00;
   }
-  // 写入分隔字节 0x01
   db[off++] = 0x01;
-  // 写入消息 M
   db.set(message, off);
-  // 4. maskedDB = DB ⊕ MGF(seed)
   let dbMask: Uint8Array = await mgf1Sha256(seed, k - hLen - 1);
   for (let i = 0; i < db.length; i++) {
     db[i] = db[i] ^ dbMask[i];
   }
-  // 5. maskedSeed = seed ⊕ MGF(maskedDB)
   let seedMask: Uint8Array = await mgf1Sha256(db, hLen);
   for (let i = 0; i < hLen; i++) {
     seed[i] = seed[i] ^ seedMask[i];
   }
-  // 6. EM = 0x00 || maskedSeed || maskedDB
   let em: Uint8Array = new Uint8Array(k);
   em[0] = 0x00;
   em.set(seed, 1);
   em.set(db, 1 + hLen);
-  // 7. RSA 加密：c = EM^e mod n
   let m: bigint = 0n;
   for (let i = 0; i < k; i++) {
     m = (m << 8n) + BigInt(em[i]);
   }
   let c: bigint = modPow(m, e, n);
-  // 8. 密文转大端字节数组
   let ct: Uint8Array = new Uint8Array(k);
   for (let i = k - 1; i >= 0; i--) {
     ct[i] = Number(c & 0xffn);
@@ -618,9 +634,6 @@ async function rsaOaepEncrypt(message: Uint8Array, n: bigint, e: bigint): Promis
 
 /**
  * 生成 correspondPath（RSA OAEP 加密 "refresh_" + 时间戳）
- * 纯 TypeScript 实现，不依赖 cryptoFramework.Cipher
- * 参考 B站 CookieRefreshApi.getCorrespondPath()
- * 调用：getCorrespondPath(Date.now())
  */
 export async function getCorrespondPath(timestamp: number): Promise<string> {
   try {
@@ -695,10 +708,23 @@ export function sha256(message: Uint8Array): Uint8Array {
       let S0: number = (rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22)) >>> 0;
       let maj: number = ((a & b) ^ (a & c) ^ (b & c)) >>> 0;
       let temp2: number = (S0 + maj) >>> 0;
-      h = g; g = f; f = e; e = (d + temp1) >>> 0; d = c; c = b; b = a; a = (temp1 + temp2) >>> 0;
+      h = g;
+      g = f;
+      f = e;
+      e = (d + temp1) >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (temp1 + temp2) >>> 0;
     }
-    H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0;
-    H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0;
+    H[0] = (H[0] + a) >>> 0;
+    H[1] = (H[1] + b) >>> 0;
+    H[2] = (H[2] + c) >>> 0;
+    H[3] = (H[3] + d) >>> 0;
+    H[4] = (H[4] + e) >>> 0;
+    H[5] = (H[5] + f) >>> 0;
+    H[6] = (H[6] + g) >>> 0;
+    H[7] = (H[7] + h) >>> 0;
   }
   let result: Uint8Array = new Uint8Array(32);
   for (let i: number = 0; i < 8; i++) {
@@ -717,12 +743,17 @@ export function sha256(message: Uint8Array): Uint8Array {
 export function hmacSha256(key: string, message: string): string {
   let keyBytes: Uint8Array = new Uint8Array(buffer.from(key, 'utf-8').buffer as ArrayBuffer);
   let msgBytes: Uint8Array = new Uint8Array(buffer.from(message, 'utf-8').buffer as ArrayBuffer);
-  if (keyBytes.length > 64) keyBytes = sha256(keyBytes);
+  if (keyBytes.length > 64) {
+    keyBytes = sha256(keyBytes);
+  }
   let paddedKey: Uint8Array = new Uint8Array(64);
   paddedKey.set(keyBytes);
   let ipad: Uint8Array = new Uint8Array(64);
   let opad: Uint8Array = new Uint8Array(64);
-  for (let i: number = 0; i < 64; i++) { ipad[i] = paddedKey[i] ^ 0x36; opad[i] = paddedKey[i] ^ 0x5C; }
+  for (let i: number = 0; i < 64; i++) {
+    ipad[i] = paddedKey[i] ^ 0x36;
+    opad[i] = paddedKey[i] ^ 0x5C;
+  }
   let innerInput: Uint8Array = new Uint8Array(64 + msgBytes.length);
   innerInput.set(ipad);
   innerInput.set(msgBytes, 64);
@@ -734,7 +765,9 @@ export function hmacSha256(key: string, message: string): string {
   let hex: string = '';
   for (let i: number = 0; i < 32; i++) {
     let h: string = outerHash[i].toString(16);
-    if (h.length === 1) hex += '0';
+    if (h.length === 1) {
+      hex += '0';
+    }
     hex += h;
   }
   return hex;
@@ -817,24 +850,50 @@ function murmur3_x64_128(data: Uint8Array, seed: bigint): bigint {
     let k1: bigint = 0n;
     let k2: bigint = 0n;
 
-    if (tailLen >= 15) { k2 ^= BigInt(data[pos + 14]) << 48n; }
-    if (tailLen >= 14) { k2 ^= BigInt(data[pos + 13]) << 40n; }
-    if (tailLen >= 13) { k2 ^= BigInt(data[pos + 12]) << 32n; }
-    if (tailLen >= 12) { k2 ^= BigInt(data[pos + 11]) << 24n; }
-    if (tailLen >= 11) { k2 ^= BigInt(data[pos + 10]) << 16n; }
-    if (tailLen >= 10) { k2 ^= BigInt(data[pos + 9]) << 8n; }
+    if (tailLen >= 15) {
+      k2 ^= BigInt(data[pos + 14]) << 48n;
+    }
+    if (tailLen >= 14) {
+      k2 ^= BigInt(data[pos + 13]) << 40n;
+    }
+    if (tailLen >= 13) {
+      k2 ^= BigInt(data[pos + 12]) << 32n;
+    }
+    if (tailLen >= 12) {
+      k2 ^= BigInt(data[pos + 11]) << 24n;
+    }
+    if (tailLen >= 11) {
+      k2 ^= BigInt(data[pos + 10]) << 16n;
+    }
+    if (tailLen >= 10) {
+      k2 ^= BigInt(data[pos + 9]) << 8n;
+    }
     if (tailLen >= 9) {
       k2 ^= BigInt(data[pos + 8]);
       h2 = mod2p64(h2 ^ mod2p64(rotl64(mod2p64(k2 * C2), R3) * C1));
     }
 
-    if (tailLen >= 8) { k1 ^= BigInt(data[pos + 7]) << 56n; }
-    if (tailLen >= 7) { k1 ^= BigInt(data[pos + 6]) << 48n; }
-    if (tailLen >= 6) { k1 ^= BigInt(data[pos + 5]) << 40n; }
-    if (tailLen >= 5) { k1 ^= BigInt(data[pos + 4]) << 32n; }
-    if (tailLen >= 4) { k1 ^= BigInt(data[pos + 3]) << 24n; }
-    if (tailLen >= 3) { k1 ^= BigInt(data[pos + 2]) << 16n; }
-    if (tailLen >= 2) { k1 ^= BigInt(data[pos + 1]) << 8n; }
+    if (tailLen >= 8) {
+      k1 ^= BigInt(data[pos + 7]) << 56n;
+    }
+    if (tailLen >= 7) {
+      k1 ^= BigInt(data[pos + 6]) << 48n;
+    }
+    if (tailLen >= 6) {
+      k1 ^= BigInt(data[pos + 5]) << 40n;
+    }
+    if (tailLen >= 5) {
+      k1 ^= BigInt(data[pos + 4]) << 32n;
+    }
+    if (tailLen >= 4) {
+      k1 ^= BigInt(data[pos + 3]) << 24n;
+    }
+    if (tailLen >= 3) {
+      k1 ^= BigInt(data[pos + 2]) << 16n;
+    }
+    if (tailLen >= 2) {
+      k1 ^= BigInt(data[pos + 1]) << 8n;
+    }
     if (tailLen >= 1) {
       k1 ^= BigInt(data[pos]);
       h1 = mod2p64(h1 ^ mod2p64(rotl64(mod2p64(k1 * C1), R2) * C2));

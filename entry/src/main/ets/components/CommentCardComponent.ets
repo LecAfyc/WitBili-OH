@@ -18,17 +18,16 @@ enum SegKind { TEXT, EMOJI, MENTION }
 
 interface Seg {
   kind: SegKind;
-  text: string;        // 段原文（text 时为纯文字，emoji/mention 时为 [xxx] / @xxx）
-  emojiUrl?: string;   // SegKind.EMOJI 时有效
-  emojiSize?: number;  // SegKind.EMOJI 时有效：18=小 25=大
-  userId?: number;     // SegKind.MENTION 时有效
+  text: string; // 段原文（text 时为纯文字，emoji/mention 时为 [xxx] / @xxx）
+  emojiUrl?: string; // SegKind.EMOJI 时有效
+  emojiSize?: number; // SegKind.EMOJI 时有效：18=小 25=大
+  userId?: number; // SegKind.MENTION 时有效
 }
 
 // ===== 组件 =====
 @Component
 export struct CommentCardComponent {
   @Consume('pageStack') pageStack: NavPathStack;
-
   @Prop comment: SingleComment = new SingleComment();
   @Prop isExpand: boolean = false;
   @Prop showReplies: boolean = true;
@@ -38,6 +37,7 @@ export struct CommentCardComponent {
   bigEmojiSize = 25;
   picSize = 55;
   maxLines = 5;
+
   // ----------------------------  解析  ----------------------------
 
   parseMessage(): Seg[] {
@@ -60,26 +60,27 @@ export struct CommentCardComponent {
 
       if (m[1] !== undefined) {
         // [表情名]
-        const val = emojiMap.get(m[1]);  // url||size
+        const val = emojiMap.get(m[1]); // url||size
         console.info('[CommentCard] emoji lookup: name="' + m[1] + '" found=' + (val ? 'yes' : 'no'));
         if (val) {
           const sep = val.indexOf('||');
           const url = sep !== -1 ? val.substring(0, sep) : val;
           const size = sep !== -1 ? Number(val.substring(sep + 2)) || 1 : 1;
           segs.push({
-            kind: SegKind.EMOJI, text: m[0],
+            kind: SegKind.EMOJI,
+            text: m[0],
             emojiUrl: url,
             emojiSize: size === 2 ? 35 : 18
           });
         } else {
           segs.push({ kind: SegKind.TEXT, text: m[0] });
-        }   // 未定义 → 当文本
+        } // 未定义 → 当文本
       } else {
         // @用户名
         const user = memberMap.get(m[2]);
         segs.push(user
           ? { kind: SegKind.MENTION, text: m[0], userId: user.mid }
-          : { kind: SegKind.TEXT, text: m[0] });   // 不在列表 → 当文本
+          : { kind: SegKind.TEXT, text: m[0] }); // 不在列表 → 当文本
       }
 
       idx = m.index + m[0].length;
@@ -101,93 +102,18 @@ export struct CommentCardComponent {
       if (s.kind === SegKind.TEXT) {
         buf += s.text;
       } else {
-        if (buf) { out.push({ kind: SegKind.TEXT, text: buf }); buf = ''; }
+        if (buf) {
+          out.push({ kind: SegKind.TEXT, text: buf });
+          buf = '';
+        }
         out.push(s);
       }
     }
-    if (buf) out.push({ kind: SegKind.TEXT, text: buf });
+    if (buf) {
+      out.push({ kind: SegKind.TEXT, text: buf });
+    }
     return out;
   }
-
-  // ===== 点赞/点踩乐观更新 =====
-  private async onLikeClick(): Promise<void> {
-    if (this.comment.oid <= 0 || this.comment.rpid <= 0) {
-      this.toast('评论信息不完整');
-      return;
-    }
-
-    let prevAction: number = this.comment.action;
-    let prevLikes: number = this.comment.likes;
-
-    // 乐观更新
-    if (this.comment.action === 1) {
-      // 已点赞 → 取消赞
-      this.comment.action = 0;
-      this.comment.likes -= 1;
-    } else {
-      // 未点赞 → 点赞（同时消去点踩）
-      if (this.comment.action === 2) {
-        this.comment.action = 0;  // 先清零，后面设为点赞
-      }
-      this.comment.action = 1;
-      this.comment.likes += 1;
-    }
-
-    let apiAction: number = this.comment.action === 1 ? 1 : 0;
-    let result = await likeComment(1, this.comment.oid, this.comment.rpid, apiAction);
-    if (result.success) {
-      this.toast(result.message);
-    } else {
-      // 回滚
-      this.comment.action = prevAction;
-      this.comment.likes = prevLikes;
-      this.toast(result.message);
-    }
-  }
-
-  private async onHateClick(): Promise<void> {
-    if (this.comment.oid <= 0 || this.comment.rpid <= 0) {
-      this.toast('评论信息不完整');
-      return;
-    }
-
-    let prevAction: number = this.comment.action;
-    let prevLikes: number = this.comment.likes;
-
-    // 乐观更新
-    if (this.comment.action === 2) {
-      // 已点踩 → 取消踩
-      this.comment.action = 0;
-    } else {
-      // 未点踩 → 点踩（同时消去点赞）
-      if (this.comment.action === 1) {
-        this.comment.action = 0;
-        this.comment.likes -= 1;
-      }
-      this.comment.action = 2;
-    }
-
-    let apiAction: number = this.comment.action === 2 ? 1 : 0;
-    let result = await hateComment(1, this.comment.oid, this.comment.rpid, apiAction);
-    if (result.success) {
-      this.toast(result.message);
-    } else {
-      // 回滚
-      this.comment.action = prevAction;
-      this.comment.likes = prevLikes;
-      this.toast(result.message);
-    }
-  }
-
-  private toast(msg: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 1500 });
-    } catch (e) {
-      console.warn('[CommentCard] Toast 失败:', String(e));
-    }
-  }
-
-  // ----------------------------  数字格式化  ----------------------------
 
   /** BFS 图片 URL 追加 @100w 获取缩略图 */
   toThumb(url: string): string {
@@ -197,15 +123,13 @@ export struct CommentCardComponent {
     return url;
   }
 
-  // ----------------------------  构建  ----------------------------
-
   build() {
     Column() {
       // ── 发送者信息 ──
       UserCardComponent({
         card: this.comment.sender,
         extraInfo: this.comment.time_desc + ' ' + this.comment.ip_desc,
-        baseFontSize:  11
+        baseFontSize: 11
       })
 
       // ── 置顶标识 ──
@@ -215,7 +139,12 @@ export struct CommentCardComponent {
           .fontColor('#FB7299')
           .backgroundColor('#332211')
           .borderRadius(4)
-          .padding({ left: 5, right: 5, top: 1, bottom: 1 })
+          .padding({
+            left: 5,
+            right: 5,
+            top: 1,
+            bottom: 1
+          })
           .margin({ left: 12, top: 4 })
       }
 
@@ -246,7 +175,7 @@ export struct CommentCardComponent {
                   .textAlign(TextAlign.Start)
                   .onClick(() => {
                     console.info('[CommentCard] mention tap: mid=' + s.userId);
-                    this.pageStack.pushPath({name: "UserDetailPage", param: new UserCard("Loading...","",s.userId)})
+                    this.pageStack.pushPath({ name: "UserDetailPage", param: new UserCard("Loading...", "", s.userId) })
                   })
               }
             })
@@ -283,7 +212,7 @@ export struct CommentCardComponent {
                 .margin({ right: 6 })
                 .objectFit(ImageFit.Cover)
                 .onClick(() => {
-                  this.pageStack.pushPath({name: 'ImageViewer', param: origUrl});
+                  this.pageStack.pushPath({ name: 'ImageViewer', param: origUrl });
                 })
             })
           }
@@ -310,7 +239,9 @@ export struct CommentCardComponent {
               .lineHeight(12)
           }
         }
-        .onClick(() => { this.onLikeClick(); })
+        .onClick(() => {
+          this.onLikeClick();
+        })
         .padding(4)
 
         Blank()
@@ -319,11 +250,18 @@ export struct CommentCardComponent {
         SymbolGlyph($r("sys.symbol.xmark_circle"))
           .fontSize(14)
           .fontColor([this.comment.action === 2 ? '#FB7299' : '#888888'])
-          .onClick(() => { this.onHateClick(); })
+          .onClick(() => {
+            this.onHateClick();
+          })
           .padding(4)
       }
       .width('100%')
-      .padding({ left: 12, right: 12, top: 6, bottom: 2 })
+      .padding({
+        left: 12,
+        right: 12,
+        top: 6,
+        bottom: 2
+      })
 
       // ── 精选回复（仅折叠态，且 showReplies 为 true）──
       if (!this.isExpand && this.showReplies && this.comment.hotReply.length > 0) {
@@ -354,5 +292,87 @@ export struct CommentCardComponent {
     .backgroundColor('#1A1A1A')
     .borderRadius(12)
     .margin({ bottom: 8 })
+  }
+
+  // ===== 点赞/点踩乐观更新 =====
+  private async onLikeClick(): Promise<void> {
+    if (this.comment.oid <= 0 || this.comment.rpid <= 0) {
+      this.toast('评论信息不完整');
+      return;
+    }
+
+    let prevAction: number = this.comment.action;
+    let prevLikes: number = this.comment.likes;
+
+    // 乐观更新
+    if (this.comment.action === 1) {
+      // 已点赞 → 取消赞
+      this.comment.action = 0;
+      this.comment.likes -= 1;
+    } else {
+      // 未点赞 → 点赞（同时消去点踩）
+      if (this.comment.action === 2) {
+        this.comment.action = 0; // 先清零，后面设为点赞
+      }
+      this.comment.action = 1;
+      this.comment.likes += 1;
+    }
+
+    let apiAction: number = this.comment.action === 1 ? 1 : 0;
+    let result = await likeComment(1, this.comment.oid, this.comment.rpid, apiAction);
+    if (result.success) {
+      this.toast(result.message);
+    } else {
+      // 回滚
+      this.comment.action = prevAction;
+      this.comment.likes = prevLikes;
+      this.toast(result.message);
+    }
+  }
+
+  // ----------------------------  数字格式化  ----------------------------
+
+  private async onHateClick(): Promise<void> {
+    if (this.comment.oid <= 0 || this.comment.rpid <= 0) {
+      this.toast('评论信息不完整');
+      return;
+    }
+
+    let prevAction: number = this.comment.action;
+    let prevLikes: number = this.comment.likes;
+
+    // 乐观更新
+    if (this.comment.action === 2) {
+      // 已点踩 → 取消踩
+      this.comment.action = 0;
+    } else {
+      // 未点踩 → 点踩（同时消去点赞）
+      if (this.comment.action === 1) {
+        this.comment.action = 0;
+        this.comment.likes -= 1;
+      }
+      this.comment.action = 2;
+    }
+
+    let apiAction: number = this.comment.action === 2 ? 1 : 0;
+    let result = await hateComment(1, this.comment.oid, this.comment.rpid, apiAction);
+    if (result.success) {
+      this.toast(result.message);
+    } else {
+      // 回滚
+      this.comment.action = prevAction;
+      this.comment.likes = prevLikes;
+      this.toast(result.message);
+    }
+  }
+
+  // ----------------------------  构建  ----------------------------
+
+  private toast(msg: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 1500 });
+    } catch (e) {
+      console.warn('[CommentCard] Toast 失败:', String(e));
+    }
   }
 }

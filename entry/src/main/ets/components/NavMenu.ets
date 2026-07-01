@@ -14,22 +14,10 @@ import { getMyAccountInfo, MyAccountInfo } from "../api/LoginApi";
 export struct NavMenu {
   @Consume('pageStack') pageStack: NavPathStack;
 
-  private navigateTo(targetPageName: string, param?: Object) {
-    const allPageNames = this.pageStack.getAllPathName();
-    const stackSize = allPageNames.length;
-    if (stackSize <= 1) {
-      console.warn('[NavMenu] 页面不足，无法执行操作');
-      return;
-    }
-    const previousPageName = allPageNames[stackSize - 2];
-    this.pageStack.pop();
-    if (previousPageName !== targetPageName) this.pageStack.replacePathByName(targetPageName, param);
-  }
-
   build() {
-    NavDestination(){
-      ArcList({initialIndex: 1}) {
-        ArcListItem(){
+    NavDestination() {
+      ArcList({ initialIndex: 1 }) {
+        ArcListItem() {
           Row() {
             SymbolGlyph($r("sys.symbol.discover_fill")).fontSize(20).fontColor(['#FB7299']).width(32)
             Text('推荐').fontSize(17).fontColor('#EEEEEE').margin({ left: 8 })
@@ -42,7 +30,8 @@ export struct NavMenu {
             this.navigateTo('Rcmd')
           })
         }
-        ArcListItem(){
+
+        ArcListItem() {
           Row() {
             SymbolGlyph($r("sys.symbol.worldclock")).fontSize(20).fontColor(['#FB7299']).width(32)
             Text('动态').fontSize(17).fontColor('#EEEEEE').margin({ left: 8 })
@@ -60,14 +49,15 @@ export struct NavMenu {
             } else {
               console.info('[NavMenu] 已登录 ');
               getMyAccountInfo().then((my: MyAccountInfo | null) => {
-                if (my !== null && my !== undefined){
+                if (my !== null && my !== undefined) {
                   this.navigateTo('DynamicListPage')
                 }
               })
             }
           })
         }
-        ArcListItem(){
+
+        ArcListItem() {
           Row() {
             SymbolGlyph($r("sys.symbol.magnifyingglass")).fontSize(20).fontColor(['#FB7299']).width(32)
             Text('搜索').fontSize(17).fontColor('#EEEEEE').margin({ left: 8 })
@@ -80,7 +70,8 @@ export struct NavMenu {
             this.navigateTo('SearchPage');
           })
         }
-        ArcListItem(){
+
+        ArcListItem() {
           Row() {
             SymbolGlyph($r("sys.symbol.person")).fontSize(20).fontColor(['#FB7299']).width(32)
             Text('个人').fontSize(17).fontColor('#EEEEEE').margin({ left: 8 })
@@ -98,14 +89,15 @@ export struct NavMenu {
             } else {
               console.info('[NavMenu] 已登录 ');
               getMyAccountInfo().then((my: MyAccountInfo | null) => {
-                if (my !== null && my !== undefined){
+                if (my !== null && my !== undefined) {
                   this.navigateTo('UserDetailPage', new UserCard(my.uname, "", my.mid));
                 }
               })
             }
           })
         }
-        ArcListItem(){
+
+        ArcListItem() {
           Row() {
             SymbolGlyph($r("sys.symbol.envelope")).fontSize(20).fontColor(['#FB7299']).width(32)
             Text('私信').fontSize(17).fontColor('#EEEEEE').margin({ left: 8 })
@@ -126,7 +118,8 @@ export struct NavMenu {
             }
           })
         }
-        ArcListItem(){
+
+        ArcListItem() {
           Row() {
             SymbolGlyph($r("sys.symbol.gearshape")).fontSize(20).fontColor(['#FB7299']).width(32)
             Text('设置').fontSize(17).fontColor('#EEEEEE').margin({ left: 8 })
@@ -136,12 +129,12 @@ export struct NavMenu {
           .borderRadius(10)
           .backgroundColor('#161616')
           .onClick(() => {
-            this.getUIContext().getPromptAction().showToast({message: "对应功能未完成，给你看图吧"})
+            this.getUIContext().getPromptAction().showToast({ message: "对应功能未完成，给你看图吧" })
             this.navigateTo('ImageViewer', "https://t.alcy.cc/mp");
           })
         }
 
-        ArcListItem(){
+        ArcListItem() {
           Row() {
             SymbolGlyph($r("sys.symbol.arrowshape_down_to_line_fill")).fontSize(20).fontColor(['#FB7299']).width(32)
             Text('缓存').fontSize(17).fontColor('#EEEEEE').margin({ left: 8 })
@@ -151,7 +144,7 @@ export struct NavMenu {
           .borderRadius(10)
           .backgroundColor('#161616')
           .onClick(() => {
-            this.getUIContext().getPromptAction().showToast({message: "对应功能未完成，给你看图吧"})
+            this.getUIContext().getPromptAction().showToast({ message: "对应功能未完成，给你看图吧" })
             this.navigateTo('ImageViewer', "https://t.alcy.cc/mp");
           })
         }
@@ -170,5 +163,19 @@ export struct NavMenu {
     .mode(NavDestinationMode.DIALOG)
     .systemTransition(NavigationSystemTransitionType.FADE)
     .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
+  }
+
+  private navigateTo(targetPageName: string, param?: Object) {
+    const allPageNames = this.pageStack.getAllPathName();
+    const stackSize = allPageNames.length;
+    if (stackSize <= 1) {
+      console.warn('[NavMenu] 页面不足，无法执行操作');
+      return;
+    }
+    const previousPageName = allPageNames[stackSize - 2];
+    this.pageStack.pop();
+    if (previousPageName !== targetPageName) {
+      this.pageStack.replacePathByName(targetPageName, param);
+    }
   }
 }

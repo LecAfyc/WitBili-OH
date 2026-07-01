@@ -11,9 +11,8 @@ import { getRelatedVideos } from '../api/RecommendApi';
 import { av2bv } from '../api/CommonApi';
 
 @Component
-export struct VideoDetailPage{
+export struct VideoDetailPage {
   @Consume('pageStack') pageStack: NavPathStack;
-
   // ==== 资源定义 ====
   @State pageParam: VideoCard = new VideoCard();
   @State up: UserCard = new UserCard();
@@ -22,7 +21,7 @@ export struct VideoDetailPage{
   @State danmakus: number = 1145;
   @State time: number = 1145;
   @State duration: number = 1145;
-  @State tags: Array<string> = ["a","w","m","c"];
+  @State tags: Array<string> = ["a", "w", "m", "c"];
   @State desc: string = "空にヒビWhat follows the tall tale?\n" +
     "ここでまた無敵に成れそうな\n" +
     "終わりない魔法でとかしていく\n" +
@@ -46,10 +45,10 @@ export struct VideoDetailPage{
   @State bv: string = "";
 
   build() {
-    NavDestination(){
-      ArcSwiper(){
+    NavDestination() {
+      ArcSwiper() {
         //视频详情页
-        Column(){
+        Column() {
           VideoDetailArc({
             pageParam: this.pageParam,
             up: this.up,
@@ -60,31 +59,32 @@ export struct VideoDetailPage{
             duration: this.duration,
             tags: this.tags,
             desc: this.desc,
-            like: $like,              // @Link：双向绑定
-            coin: $coin,              // @Link
+            like: $like, // @Link：双向绑定
+            coin: $coin, // @Link
             favorite: this.favorite,
             share: this.share,
             pages: this.pages,
-            isLiked: $isLiked,        // @Link
-            isFavoured: $isFavoured,   // @Link
-            coinsGiven: $coinsGiven,   // @Link
+            isLiked: $isLiked, // @Link
+            isFavoured: $isFavoured, // @Link
+            coinsGiven: $coinsGiven, // @Link
             bv: this.bv
           })
         }
 
         //评论区页
-        Column(){
-          CommentSection({ aid: this.pageParam.aid ,type: [1,5]})
+        Column() {
+          CommentSection({ aid: this.pageParam.aid, type: [1, 5] })
         }
 
         //视频推荐页
-        Column(){
+        Column() {
           VideoRelatedRecommend({ relatedVideos: this.relatedVideos })
         }
       }
       .indicator(false)
       .height('100%')
       .width('100%')
+
       Row() {
         Text('<').fontSize(18).fontColor('#FB7299').width(24).textAlign(TextAlign.Center)
         Text('返回').fontSize(15).fontColor('#EEEEEE').margin({ left: 4 })
@@ -94,7 +94,11 @@ export struct VideoDetailPage{
       .padding({ left: 2, top: 8, bottom: 8 })
       .borderRadius(10)
       .backgroundColor('rgba(22,22,22,0.6)')
-      .onClick(() => { if (this.pageStack) this.pageStack.pop(); })
+      .onClick(() => {
+        if (this.pageStack) {
+          this.pageStack.pop();
+        }
+      })
     }
     .height('100%')
     .width('100%')

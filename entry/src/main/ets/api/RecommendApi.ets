@@ -1,13 +1,5 @@
 /**
  * Bilibili 推荐 API
- * 参考 https://api.bilibili.com/x/web-interface/wbi/index/top/feed/rcmd 文档
- * 以及 BiliClient (Android) 项目的 RecommendApi.java
- *
- * 分页机制（用于获取不同推荐内容）：
- *   fresh_idx     — 当前翻页号，从 1 开始
- *   fresh_idx_1h  — 与 fresh_idx 相同
- *   fetch_row     — 本次抓取的最后一行行号，初始 1，每次递归加上本次抓取行数
- *   ps            — 每页条数，默认 12，最大 30
  */
 
 import { VideoCard } from '../model/ContentCard';
@@ -16,9 +8,9 @@ import { ApiResponse, httpGet, HEADERS } from './CommonApi';
 import { formatCount, decodeHTML } from './CommonApi';
 
 // ===== 常量 =====
-const PAGE_SIZE: number = 12;       // 每页条数（文档说明默认12）
-const REFRESH_SKIP_PAGES: number = 6;   // 每次下拉刷新跳过多少页
-const LAUNCH_PAGE_RANGE: number = 20;   // 冷启动随机偏移 1~20 页
+const PAGE_SIZE: number = 12; // 每页条数（文档说明默认12）
+const REFRESH_SKIP_PAGES: number = 6; // 每次下拉刷新跳过多少页
+const LAUNCH_PAGE_RANGE: number = 20; // 冷启动随机偏移 1~20 页
 
 // ===== 分页游标状态（模块级，跨页面持久化） =====
 // 每次冷启动随机偏移起始页，避免每次打开都看到同一批推荐
@@ -34,10 +26,6 @@ function generateUniqId(): number {
 /**
  * 刷新游标（下拉刷新时调用）
  *
- * 关键设计：不重置回第1页，而是向前跳转若干页。
- * B站推荐API对同一组 fresh_idx/fetch_row 会缓存结果，
- * 如果每次刷新都回到第1页，永远拿不到新内容。
- * 前进跳页 → 服务端返回没见过的推荐 → 刷新有效。
  */
 export function resetRecommendCursor(): void {
   // 向前跳页，不是回到原点
@@ -50,8 +38,6 @@ export function resetRecommendCursor(): void {
 // formatCount()、decodeHTML() 见 CommentApi.ets
 
 
-
-
 // ===== 推荐 API 返回结构 =====
 
 export interface RecommendResult {
@@ -62,10 +48,6 @@ export interface RecommendResult {
 
 /**
  * 获取指定视频下方的相关视频推荐列表
- *
- * GET https://api.bilibili.com/x/web-interface/archive/related
- *
- * 最多返回 40 条推荐视频，返回结构与视频详情接口的 data 对象相同（不含分P信息）。
  *
  * @param aid 稿件 avid（与 bvid 二选一）
  * @param bvid 稿件 bvid（与 aid 二选一）
@@ -139,18 +121,9 @@ export async function getRelatedVideos(aid?: number, bvid?: string): Promise<Vid
 // ===== 首页推荐 API =====
 
 
-
 /**
  * 获取推荐视频列表
  *
- * 分页机制（文档说明）：
- *   fresh_idx     — 当前翻页号，从 1 开始递增
- *   fetch_row     — 本次抓取的最后一行行号，初始 1
- *                   每次请求后: fetch_row = 前次 fetch_row + 前次返回的 item 数量
- *
- * 首次请求不带 fresh_idx / fetch_row → 获取初始推荐
- * 后续请求带上这些参数 → 获取不同推荐内容
- * 刷新 → resetRecommendCursor() 重置游标
  */
 export async function getRecommend(): Promise<RecommendResult> {
   let result: RecommendResult = {
@@ -164,7 +137,7 @@ export async function getRecommend(): Promise<RecommendResult> {
     'homepage_ver=1',
     'uniq_id=' + currentUniqId,
     'screen=466-466',
-    'fresh_type=4',          // 相关性（值越大越相关）
+    'fresh_type=4', // 相关性（值越大越相关）
     'ps=' + PAGE_SIZE.toString()
   ];
 

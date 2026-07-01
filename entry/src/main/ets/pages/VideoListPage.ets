@@ -39,7 +39,6 @@ export class VideoListPageParams {
 @Component
 export struct VideoListPage {
   @Consume('pageStack') pageStack: NavPathStack;
-
   // ===== 视图状态 =====
   @State videoList: VideoCard[] = [];
   @State isLoading: boolean = false;
@@ -48,22 +47,174 @@ export struct VideoListPage {
   @State hasMore: boolean = true;
   @State errorMessage: string = '';
   @State firstLoad: boolean = true;
-
   // ===== 来源配置（onReady 时设置） =====
   private sourceType: string = '';
-
   // === collection 翻页状态 ===
   private mlid: number = 0;
   private currentPage: number = 1;
-
   // === history 游标翻页状态 ===
   private historyCursorMax: number = 0;
   private historyCursorViewAt: number = 0;
+
+  build() {
+    NavDestination() {
+      Stack() {
+        Column() {
+          // ---- 主内容区 ----
+          this.MainContent()
+        }
+        .width('100%')
+        .height('100%')
+        .padding({
+          left: 16,
+          right: 16,
+          top: 8,
+          bottom: 16
+        })
+      }
+      .width('100%')
+      .height('100%')
+    }
+    .height('100%')
+    .width('100%')
+    .hideBackButton(true)
+    .hideTitleBar(true)
+    .backgroundImage($r('app.media.oobe'))
+    .onReady((context: NavDestinationContext) => {
+      let params: VideoListPageParams = context.pathInfo.param as VideoListPageParams;
+      this.sourceType = params.sourceType;
+      this.mlid = params.mlid;
+      this.pageTitle = params.title;
+      console.info('[VideoListPage] onReady: sourceType=' + this.sourceType +
+        ' mlid=' + this.mlid + ' title=' + this.pageTitle);
+      this.loadInitial();
+    })
+  }
+
+  // ==========================
+  @Builder
+  MainContent() {
+    if (this.firstLoad && this.isLoading && this.videoList.length === 0) {
+      // ---- 首次加载中 ----
+      Column() {
+        LoadingProgress()
+          .width(40)
+          .height(40)
+          .color('#FB7299')
+        Text('加载中...')
+          .fontSize(15)
+          .fontColor('#666666')
+          .margin({ top: 12 })
+      }
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+    } else if (this.videoList.length === 0) {
+      // ---- 空状态 ----
+      Column() {
+        Text('X TRACK LOST')
+          .fontSize(40)
+        Text(this.errorMessage)
+          .fontSize(14)
+          .fontColor('#888888')
+          .textAlign(TextAlign.Center)
+          .margin({ top: 8 })
+          .lineHeight(20)
+        Text('点击刷新')
+          .fontSize(13)
+          .fontColor('#FB7299')
+          .margin({ top: 16 })
+          .onClick(() => {
+            this.handleRefresh();
+          })
+      }
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+    } else {
+      // ---- 视频列表 ----
+      Refresh({ refreshing: this.isRefreshing }) {
+        List({ space: 8 }) {
+          ListItem() {
+            Column().height('14%')
+          }
+
+          ForEach(this.videoList, (item: VideoCard, index?: number) => {
+            ListItem() {
+              VideoCardComponent({ card: item })
+            }
+            .gesture(
+              LongPressGesture()
+                .onAction(() => {
+                  if (index !== undefined) {
+                    this.showDeleteDialog(item, index);
+                  }
+                })
+            )
+          })
+
+          // 底部加载状态指示
+          if (this.isWatchLater()) {
+            // 稍后再看不显示"加载更多"
+          } else {
+            ListItem() {
+              Row() {
+                if (this.isLoading) {
+                  LoadingProgress()
+                    .width(18)
+                    .height(18)
+                    .color('#FB7299')
+                  Text('加载更多...')
+                    .fontSize(13)
+                    .fontColor('#777777')
+                    .margin({ left: 6 })
+                } else if (!this.hasMore) {
+                  Text('— 没有更多了 —')
+                    .fontSize(13)
+                    .fontColor('#555555')
+                }
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+              .padding({ top: 8, bottom: 16 })
+            }
+          }
+
+          ListItem() {
+            Column().height('14%')
+          }
+        }
+        .width('100%')
+        .height('100%')
+        .onReachEnd(() => {
+          if (!this.isWatchLater()) {
+            this.loadMore();
+          }
+        })
+        .edgeEffect(EdgeEffect.Spring)
+        .focusable(true)
+        .focusOnTouch(true)
+        .defaultFocus(true)
+      }
+      .onRefreshing(() => {
+        this.handleRefresh();
+      })
+      .refreshOffset(60)
+      .width('100%')
+      .height('100%')
+    }
+  }
 
   // ===== 计算属性（非 State，不影响渲染） =====
   private isWatchLater(): boolean {
     return this.sourceType === 'watchLater';
   }
+
+  // ==========================
+  //        数据加载
+  // ==========================
 
   private isCollection(): boolean {
     return this.sourceType === 'collection';
@@ -72,10 +223,6 @@ export struct VideoListPage {
   private isHistory(): boolean {
     return this.sourceType === 'history';
   }
-
-  // ==========================
-  //        数据加载
-  // ==========================
 
   private async loadInitial(): Promise<void> {
     this.isLoading = true;
@@ -121,8 +268,14 @@ export struct VideoListPage {
     }
   }
 
+  // ==========================
+  //       删除操作（仅稍后再看）
+  // ==========================
+
   private async loadMore(): Promise<void> {
-    if (this.isLoading || !this.hasMore || this.isWatchLater()) return;
+    if (this.isLoading || !this.hasMore || this.isWatchLater()) {
+      return;
+    }
     this.isLoading = true;
 
     try {
@@ -151,7 +304,9 @@ export struct VideoListPage {
   }
 
   private handleRefresh(): void {
-    if (this.isRefreshing) return;
+    if (this.isRefreshing) {
+      return;
+    }
     this.isRefreshing = true;
     this.hasMore = true;
     this.errorMessage = '';
@@ -162,11 +317,13 @@ export struct VideoListPage {
   }
 
   // ==========================
-  //       删除操作（仅稍后再看）
+  //        视图构建
   // ==========================
 
   private showDeleteDialog(item: VideoCard, index: number): void {
-    if (!this.isWatchLater()) return;
+    if (!this.isWatchLater()) {
+      return;
+    }
 
     promptAction.showDialog({
       message: '删除「' + item.title + '」？',
@@ -183,6 +340,9 @@ export struct VideoListPage {
     });
   }
 
+  // ==========================
+  //        主内容区
+
   private async deleteVideo(item: VideoCard, index: number): Promise<void> {
     try {
       let result = await deleteToView(item.aid);
@@ -198,154 +358,6 @@ export struct VideoListPage {
     } catch (e) {
       console.error('[VideoListPage] 删除异常:', JSON.stringify(e));
       this.getUIContext().getPromptAction().showToast({ message: '删除失败' });
-    }
-  }
-
-  // ==========================
-  //        视图构建
-  // ==========================
-
-  build() {
-    NavDestination() {
-      Stack() {
-        Column() {
-          // ---- 主内容区 ----
-          this.MainContent()
-        }
-        .width('100%')
-        .height('100%')
-        .padding({ left: 16, right: 16, top: 8, bottom: 16 })
-      }
-      .width('100%')
-      .height('100%')
-    }
-    .height('100%')
-    .width('100%')
-    .hideBackButton(true)
-    .hideTitleBar(true)
-    .backgroundImage($r('app.media.oobe'))
-    .onReady((context: NavDestinationContext) => {
-      let params: VideoListPageParams = context.pathInfo.param as VideoListPageParams;
-      this.sourceType = params.sourceType;
-      this.mlid = params.mlid;
-      this.pageTitle = params.title;
-      console.info('[VideoListPage] onReady: sourceType=' + this.sourceType +
-        ' mlid=' + this.mlid + ' title=' + this.pageTitle);
-      this.loadInitial();
-    })
-  }
-
-  // ==========================
-  //        主内容区
-  // ==========================
-  @Builder
-  MainContent() {
-    if (this.firstLoad && this.isLoading && this.videoList.length === 0) {
-      // ---- 首次加载中 ----
-      Column() {
-        LoadingProgress()
-          .width(40)
-          .height(40)
-          .color('#FB7299')
-        Text('加载中...')
-          .fontSize(15)
-          .fontColor('#666666')
-          .margin({ top: 12 })
-      }
-      .width('100%')
-      .height('100%')
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-    } else if (this.videoList.length === 0) {
-      // ---- 空状态 ----
-      Column() {
-        Text('X TRACK LOST')
-          .fontSize(40)
-        Text(this.errorMessage)
-          .fontSize(14)
-          .fontColor('#888888')
-          .textAlign(TextAlign.Center)
-          .margin({ top: 8 })
-          .lineHeight(20)
-        Text('点击刷新')
-          .fontSize(13)
-          .fontColor('#FB7299')
-          .margin({ top: 16 })
-          .onClick(() => { this.handleRefresh(); })
-      }
-      .width('100%')
-      .height('100%')
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-    } else {
-      // ---- 视频列表 ----
-      Refresh({ refreshing: this.isRefreshing }) {
-        List({ space: 8 }) {
-          ListItem(){
-            Column().height('14%')
-          }
-
-          ForEach(this.videoList, (item: VideoCard, index?: number) => {
-            ListItem() {
-              VideoCardComponent({ card: item })
-            }
-            .gesture(
-              LongPressGesture()
-                .onAction(() => {
-                  if (index !== undefined) {
-                    this.showDeleteDialog(item, index);
-                  }
-                })
-            )
-          })
-
-          // 底部加载状态指示
-          if (this.isWatchLater()) {
-            // 稍后再看不显示"加载更多"
-          } else {
-            ListItem() {
-              Row() {
-                if (this.isLoading) {
-                  LoadingProgress()
-                    .width(18)
-                    .height(18)
-                    .color('#FB7299')
-                  Text('加载更多...')
-                    .fontSize(13)
-                    .fontColor('#777777')
-                    .margin({ left: 6 })
-                } else if (!this.hasMore) {
-                  Text('— 没有更多了 —')
-                    .fontSize(13)
-                    .fontColor('#555555')
-                }
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.Center)
-              .padding({ top: 8, bottom: 16 })
-            }
-          }
-
-          ListItem(){
-            Column().height('14%')
-          }
-        }
-        .width('100%')
-        .height('100%')
-        .onReachEnd(() => {
-          if (!this.isWatchLater()) {
-            this.loadMore();
-          }
-        })
-        .edgeEffect(EdgeEffect.Spring)
-        .focusable(true)
-        .focusOnTouch(true)
-        .defaultFocus(true)
-      }
-      .onRefreshing(() => { this.handleRefresh(); })
-      .refreshOffset(60)
-      .width('100%')
-      .height('100%')
     }
   }
 }

@@ -17,7 +17,6 @@ import { Dynamic } from '../model/Dynamic';
 @Component
 export struct DynamicDetailPage {
   @Consume('pageStack') pageStack: NavPathStack;
-
   @State pageParam: Dynamic = new Dynamic();
   @State isLoading: boolean = true;
 
@@ -32,7 +31,7 @@ export struct DynamicDetailPage {
           } else {
             // 以单个可滚动视图展示完整动态
             Scroll() {
-              Column(){
+              Column() {
                 Blank().height("14%")
                 DynamicCardComponent({ dynamic: this.pageParam, isExpand: true })
                   .margin({ top: 8 })
@@ -51,14 +50,14 @@ export struct DynamicDetailPage {
         }
         .width('100%')
         .height('100%')
-        .padding({left: 14, right: 14})
+        .padding({ left: 14, right: 14 })
 
         // ───── 第 2 页：评论区（type=11 为动态评论区类型） ─────
         Column() {
           if (this.pageParam.comment_id > 0) {
             CommentSection({
               aid: this.pageParam.comment_id,
-              type: [11,17]
+              type: [11, 17]
             })
           } else {
             Column() {
@@ -86,7 +85,11 @@ export struct DynamicDetailPage {
       .padding({ left: 2, top: 8, bottom: 8 })
       .borderRadius(10)
       .backgroundColor('rgba(22,22,22,0.6)')
-      .onClick(() => { if (this.pageStack) this.pageStack.pop(); })
+      .onClick(() => {
+        if (this.pageStack) {
+          this.pageStack.pop();
+        }
+      })
     }
     .height('100%')
     .width('100%')

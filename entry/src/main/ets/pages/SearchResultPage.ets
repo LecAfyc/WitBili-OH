@@ -8,7 +8,7 @@ import { UserCard } from '../model/UserCard';
 
 
 @Component
-export struct SearchResultPage{
+export struct SearchResultPage {
   @Consume('pageStack') pageStack: NavPathStack;
   @State keyword: string = "";
   @State videoResults: VideoCard[] = [];
@@ -24,9 +24,10 @@ export struct SearchResultPage{
   @State currentUserPage: number = 1;
   @State articleLoading: boolean = false;
 
-
   async loadVideoResults(): Promise<void> {
-    if (this.videoLoading || !this.videoHasMore || this.keyword === "") return;
+    if (this.videoLoading || !this.videoHasMore || this.keyword === "") {
+      return;
+    }
     this.videoLoading = true;
     let newResults: VideoCard[] = await searchVideos(this.keyword, this.currentVideoPage);
     if (newResults.length > 0) {
@@ -42,7 +43,9 @@ export struct SearchResultPage{
   }
 
   async loadArticleResults(): Promise<void> {
-    if (this.articleLoading || !this.articleHasMore || this.keyword === '') return;
+    if (this.articleLoading || !this.articleHasMore || this.keyword === '') {
+      return;
+    }
     this.articleLoading = true;
     let newResults: ArticleCard[] = await searchArticles(this.keyword, this.currentArticlePage);
     if (newResults.length > 0) {
@@ -58,7 +61,9 @@ export struct SearchResultPage{
   }
 
   async loadUserResults(): Promise<void> {
-    if (this.userLoading || !this.userHasMore || this.keyword === "") return;
+    if (this.userLoading || !this.userHasMore || this.keyword === "") {
+      return;
+    }
     this.userLoading = true;
     let newResults: UserCard[] = await searchUsers(this.keyword, this.currentUserPage);
     if (newResults.length > 0) {
@@ -73,21 +78,21 @@ export struct SearchResultPage{
     this.userLoading = false;
   }
 
-
   build() {
-    NavDestination(){
-      ArcSwiper(){
+    NavDestination() {
+      ArcSwiper() {
         //视频搜索页
-        Column(){
+        Column() {
           List({ space: 8 }) {
-            ListItem(){
+            ListItem() {
               Column().height('14%')
             }
+
             ForEach(this.videoResults, (item: VideoCard) => {
               ListItem() {
                 VideoCardComponent({ card: item })
               }
-              .padding({left: 14, right: 14})
+              .padding({ left: 14, right: 14 })
             })
             ListItem() {
               Row() {
@@ -113,16 +118,17 @@ export struct SearchResultPage{
         }
 
         //专栏搜索页
-        Column(){
+        Column() {
           List({ space: 8 }) {
-            ListItem(){
+            ListItem() {
               Column().height('14%')
             }
+
             ForEach(this.articleResults, (item: ArticleCard) => {
               ListItem() {
                 ArticleCardComponent({ card: item })
               }
-              .padding({left: 14, right: 14})
+              .padding({ left: 14, right: 14 })
             })
             ListItem() {
               Row() {
@@ -148,16 +154,17 @@ export struct SearchResultPage{
         }
 
         //用户搜索页
-        Column(){
+        Column() {
           List({ space: 8 }) {
-            ListItem(){
+            ListItem() {
               Column().height('14%')
             }
+
             ForEach(this.userResults, (item: UserCard) => {
               ListItem() {
-                UserCardComponent({ card: item, baseFontSize: 14, extraInfo: item.desc})
+                UserCardComponent({ card: item, baseFontSize: 14, extraInfo: item.desc })
               }
-              .padding({left: 14, right: 14})
+              .padding({ left: 14, right: 14 })
             })
             ListItem() {
               Row() {
@@ -185,6 +192,7 @@ export struct SearchResultPage{
       .indicator(false)
       .height('100%')
       .width('100%')
+
       Row() {
         Text('<').fontSize(18).fontColor('#FB7299').width(24).textAlign(TextAlign.Center)
         Text('返回').fontSize(15).fontColor('#EEEEEE').margin({ left: 4 })
@@ -194,7 +202,11 @@ export struct SearchResultPage{
       .padding({ left: 2, top: 8, bottom: 8 })
       .borderRadius(10)
       .backgroundColor('rgba(22,22,22,0.6)')
-      .onClick(() => { if (this.pageStack) this.pageStack.pop(); })
+      .onClick(() => {
+        if (this.pageStack) {
+          this.pageStack.pop();
+        }
+      })
     }
     .height('100%')
     .width('100%')
@@ -208,5 +220,4 @@ export struct SearchResultPage{
       this.loadUserResults();
     })
   }
-
 }

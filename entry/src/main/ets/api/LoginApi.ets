@@ -5,19 +5,24 @@
 
 import { http } from '@kit.NetworkKit';
 import { ApiResponse, httpGet, httpPost, httpPostForm, HEADERS, RequestOptions, getCorrespondPath } from './CommonApi';
-import { cookieMap as cookiesApiMap, putCookie as cookiesApiPut, saveToStorage as cookiesApiSave, checkCookies as cookiesApiCheckCookies} from './CookiesApi';
+import {
+  cookieMap as cookiesApiMap,
+  putCookie as cookiesApiPut,
+  saveToStorage as cookiesApiSave,
+  checkCookies as cookiesApiCheckCookies
+} from './CookiesApi';
 
 // ===== 类型 =====
 
 export interface QRCodeData {
-  url: string;       // 二维码内容（登录 URL）
+  url: string; // 二维码内容（登录 URL）
   qrcodeKey: string; // 轮询用 key
 }
 
 export interface PollResult {
-  code: number;          // 0: 成功  86038: 过期  86090: 已扫码待确认  86101: 未扫码
+  code: number; // 0: 成功  86038: 过期  86090: 已扫码待确认  86101: 未扫码
   message: string;
-  data: Object | null;   // 登录成功时携带 cookies
+  data: Object | null; // 登录成功时携带 cookies
 }
 
 /** 登录成功后的 cookie 信息 */
@@ -27,7 +32,6 @@ export interface LoginCookies {
   SESSDATA: string;
   bili_jct: string;
 }
-
 
 
 // ===== Cookie 管理 =====
@@ -58,7 +62,9 @@ function rebuildCookieHeader(): void {
 function extractCookiesFromHeaders(headers: Record<string, Object>): void {
   // HarmonyOS http 返回 set-cookie 为数组（每条一条），也可能兼容旧版字符串
   let setCookie: Object | undefined = headers['set-cookie'] || headers['Set-Cookie'];
-  if (!setCookie) return;
+  if (!setCookie) {
+    return;
+  }
 
   let cookieItems: string[] = [];
   if (Array.isArray(setCookie)) {
@@ -90,7 +96,6 @@ function extractCookiesFromHeaders(headers: Record<string, Object>): void {
 }
 
 
-
 // ===== LoginApi 专用 HTTP 封装（自动提取 Cookie） =====
 
 /** 带 Cookie 提取的 GET */
@@ -115,7 +120,6 @@ function loginHttpPostForm(url: string, data: string): Promise<ApiResponse> {
 
 /**
  * 获取登录二维码
- * POST https://passport.bilibili.com/x/passport-login/web/qrcode/generate
  */
 /**
  * 前置初始化：模拟浏览器 Cookie 环境
@@ -143,7 +147,8 @@ export async function checkCookies(): Promise<void> {
 }
 
 export async function generateQRCode(): Promise<QRCodeData> {
-  let url: string = 'https://passport.bilibili.com/x/passport-login/web/qrcode/generate?source=main-fe-header&go_url=https:%2F%2Fwww.bilibili.com%2F';
+  let url: string =
+    'https://passport.bilibili.com/x/passport-login/web/qrcode/generate?source=main-fe-header&go_url=https:%2F%2Fwww.bilibili.com%2F';
   let resp: ApiResponse = await loginHttpGet(url);
 
   if (resp.code !== 0 || !resp.data) {
@@ -167,16 +172,17 @@ export async function generateQRCode(): Promise<QRCodeData> {
  *
  */
 export async function pollLoginState(qrcodeKey: string): Promise<PollResult> {
-  let url: string = 'https://passport.bilibili.com/x/passport-login/web/qrcode/poll?source=main-fe-header&web_location=333.1007&qrcode_key=' + qrcodeKey;
+  let url: string =
+    'https://passport.bilibili.com/x/passport-login/web/qrcode/poll?source=main-fe-header&web_location=333.1007&qrcode_key=' +
+      qrcodeKey;
   let resp: ApiResponse = await loginHttpGet(url);
 
   // 重要：根 code 永远是 0（HTTP 层面），二维码实际状态在 data.code 中
-  // Android 参考实现：loginJson.getJSONObject("data").getInt("code")
   let actualCode: number = 86101; // 默认：未扫码
   console.log("[Login]poll获得数据：resp.data=" + JSON.stringify(resp.data))
   if (resp.data) {
     let dataObj: Record<string, Object> = resp.data as Record<string, Object>;
-    console.log("[Login]resp.data："+dataObj)
+    console.log("[Login]resp.data：" + dataObj)
     actualCode = (dataObj['code'] as number) ?? 86101;
   }
 
@@ -197,11 +203,6 @@ export async function pollLoginState(qrcodeKey: string): Promise<PollResult> {
 /**
  * 从成功的登录轮询响应中提取 cookies
  *
- * 注意：真正的 B 站登录 Cookie（SESSDATA / DedeUserID / bili_jct 等）
- * 已在 HTTP 请求过程中通过 Set-Cookie 响应头由 extractCookiesFromHeaders()
- * 自动提取并存入 cookieMap。响应体 data.cookie_info.cookies[] 中包含的
- * 是 Bilibili 游戏侧 Cookie，不应覆盖 Set-Cookie 内容。
- * 参考 BiliClient QRLoginFragment.java
  */
 export function saveLoginCookies(data: Object): void {
   let dataObj: Record<string, Object> = data as Record<string, Object>;
@@ -239,7 +240,6 @@ function saveToAppStorage(): void {
 
 /**
  * 登录成功后：将中关键信息(mid/csrf)单独存储
- * 参考 BiliClient: SharedPreferencesUtil.putLong(SharedPreferencesUtil.mid, ...)
  */
 function saveLoginData(): void {
   // DedeUserID → mid
@@ -265,7 +265,6 @@ function saveLoginData(): void {
 
 /**
  * SSO 扩散：登录后向 B 站各子域同步 Cookie
- * 参考 LoginApi.requestSSOs()
  */
 export async function requestSSOs(): Promise<void> {
   let csrf: string = cookieMap['bili_jct'] || '';
@@ -323,14 +322,12 @@ export function restoreCookiesFromStorage(): void {
   }
 }
 
-/** 从 Cookie 中提取指定值（参考 NetWorkUtil.getInfoFromCookie） */
+/** 从 Cookie 中提取指定值 */
 export function getCookieValue(name: string): string {
   return cookieMap[name] || '';
 }
 
 // ===== Cookie 刷新 API =====
-// 参考 BiliClient CookieRefreshApi.java
-// 文档: https://socialsisteryi.github.io/bilibili-API-collect/docs/login/cookie_refresh.html
 
 /** Cookie 刷新信息 */
 export interface CookieRefreshInfo {
@@ -364,7 +361,9 @@ export async function getCookieRefreshInfo(): Promise<CookieRefreshInfo> {
  * 请求 bilibili.com/correspond/1/{correspondPath} 并解析 #1-name 元素
  */
 export async function getRefreshCsrf(correspondPath: string): Promise<string> {
-  if (!correspondPath) return '';
+  if (!correspondPath) {
+    return '';
+  }
 
   let url: string = 'https://www.bilibili.com/correspond/1/' + correspondPath;
   console.info('[Login] url = ' + url)
@@ -393,7 +392,6 @@ export async function getRefreshCsrf(correspondPath: string): Promise<string> {
         return;
       }
       // 简单解析 HTML：查找 id="1-name" 的标签内容
-      // 对应 Android Jsoup: document.select("#1-name").get(0).text()
       let match: RegExpMatchArray | null = html.match(/id=[\'"]1-name[\'"][^>]*>([^<]+)<\//i);
       if (match && match[1]) {
         console.info("Login - refresh_crsf(Way 1)")
@@ -412,7 +410,9 @@ export async function getRefreshCsrf(correspondPath: string): Promise<string> {
  * 执行 Cookie 刷新
  */
 export async function refreshCookie(refreshCsrf: string): Promise<boolean> {
-  if (!refreshCsrf) return false;
+  if (!refreshCsrf) {
+    return false;
+  }
 
   // 优先从 cookieMap 读取（由 restoreCookiesFromStorage 从 AccountData 恢复）
   // 兜底到 AppStorage
@@ -420,7 +420,7 @@ export async function refreshCookie(refreshCsrf: string): Promise<boolean> {
   // 从大约2026.1开始，扫码登录极大概率不会返回 refresh_token，原因未知
   // 由于做B站Api收集的项目已被律师函，故不修复登录容易掉的问题
   // 有时间再做手机号登录
-  let refreshToken: string = cookieMap['refresh_token'] || 
+  let refreshToken: string = cookieMap['refresh_token'] ||
     AppStorage.get<string>('refresh_token') || '';
   console.log("Login - refreshToken = " + refreshToken)
   if (!refreshToken) {
@@ -453,10 +453,7 @@ export async function refreshCookie(refreshCsrf: string): Promise<boolean> {
       refreshTokenNew = (dataObj['refresh_token'] as string) || '';
     }
 
-    // 当前 cookies（已经过 Set-Cookie 更新）
-    let cookiesNew: string = HEADERS['Cookie'];
-
-    // 2. 确认刷新，使旧 Cookie 失效
+    // 刷新
     let newBiliJct: string = cookieMap['bili_jct'] || '';
     let confirmData: string = 'csrf=' + encodeURIComponent(newBiliJct) +
       '&refresh_token=' + encodeURIComponent(refreshToken);
@@ -464,10 +461,7 @@ export async function refreshCookie(refreshCsrf: string): Promise<boolean> {
     let confirmResp: ApiResponse = await loginHttpPostForm(confirmUrl, confirmData);
 
     if (confirmResp.code !== 0) {
-      // 确认失败，回滚 cookies
-      console.error('[Login] 确认刷新失败, code=' + confirmResp.code + '，回滚 cookies');
-      // 由于 cookieMap 已被更新，此处直接重置为旧值有困难
-      // 实际上 Android 版有 SharedPreferences 做回滚
+      console.error('[Login] 确认刷新失败, code=' + confirmResp.code);
       return false;
     }
 
@@ -481,9 +475,13 @@ export async function refreshCookie(refreshCsrf: string): Promise<boolean> {
 
     // 更新 mid 和 csrf
     let dede: string = cookieMap['DedeUserID'] || '';
-    if (dede) AppStorage.set<string>('mid', dede);
+    if (dede) {
+      AppStorage.set<string>('mid', dede);
+    }
     let biliJctNew: string = cookieMap['bili_jct'] || '';
-    if (biliJctNew) AppStorage.set<string>('csrf', biliJctNew);
+    if (biliJctNew) {
+      AppStorage.set<string>('csrf', biliJctNew);
+    }
 
     // 持久化（LoginApi + CookiesApi）
     saveToAppStorage();
@@ -567,18 +565,17 @@ export async function checkLoginStatus(): Promise<boolean> {
 }
 
 // ===== 获取我的信息 =====
-// 文档: https://socialsisteryi.github.io/bilibili-API-collect/docs/login/member_center.html#%E8%8E%B7%E5%8F%96%E6%88%91%E7%9A%84%E4%BF%A1%E6%81%AF
 
 /** 我的账户信息 */
 export interface MyAccountInfo {
-  mid: number;       // 我的 mid
-  uname: string;     // 我的昵称
-  userid: string;    // 我的用户名（如 "bili_xxxx"）
-  sign: string;      // 我的签名
-  birthday: string;  // 生日 YYYY-MM-DD
-  sex: string;       // 性别：男 女 保密
-  nick_free: boolean;// 是否未设置昵称
-  rank: string;      // 会员等级
+  mid: number; // 我的 mid
+  uname: string; // 我的昵称
+  userid: string; // 我的用户名（如 "bili_xxxx"）
+  sign: string; // 我的签名
+  birthday: string; // 生日 YYYY-MM-DD
+  sex: string; // 性别：男 女 保密
+  nick_free: boolean; // 是否未设置昵称
+  rank: string; // 会员等级
 }
 
 /**

@@ -1,28 +1,6 @@
 /**
  * Bilibili 弹幕 API
  *
- * 获取视频弹幕 XML 格式数据
- * API: GET https://comment.bilibili.com/{cid}.xml
- *
- * 参考 BAC Document xml弹幕:
- *   获取接口: https://comment.bilibili.com/{cid}.xml （deflate 压缩）
- *   <d p="time,type,fontSize,color,timestamp,pool,senderHash,dmid">弹幕文本</d>
- *
- * ⚠️ deflate 压缩说明：
- *   B 站弹幕接口使用 HTTP Content-Encoding: deflate 压缩。
- *   HarmonyOS 的 @kit.NetworkKit http 模块会**自动处理**解压缩，
- *   本模块通过 CommonApi.httpGetText() 请求，已确保返回的是已解码的文本。
- *   若底层未自动解压，httpGetText 中的低字节检测会发出警告。
- *
- * 弹幕处理规则：
- *   - 只处理普通弹幕（type 1-6）：滚动/底部/顶部/逆向
- *   - 排除：高级弹幕(7)、代码弹幕(8)、BAS弹幕(9)
- *   - 不涉及弹幕屏蔽/过滤功能
- *
- * 📦 懒加载设计：
- *   为避免弹幕过多时一次性创建大量 BarrageItem 对象导致卡顿，
- *   本模块的 getDanmakuItems() 只返回轻量的 DanmakuData[]，
- *   BarrageItem 在播放过程中由调用方按需创建。
  */
 
 import { BarrageItem } from '@esky/barrage';
@@ -34,20 +12,28 @@ import { decodeHTML, httpGetText } from './CommonApi';
 export interface DanmakuData {
   /** 视频内出现时间（秒） */
   time: number;
+
   /** 弹幕类型：1-3=滚动，4=底部，5=顶部，6=逆向 */
   type: number;
+
   /** 字号：18=小，25=标准，36=大 */
   fontSize: number;
+
   /** 颜色（十进制 RGB888） */
   color: number;
+
   /** 发送时间戳 */
   sendTimestamp: number;
+
   /** 弹幕池：0=普通，1=字幕，2=特殊 */
   pool: number;
+
   /** 发送者 mid 的 hash */
   senderHash: string;
+
   /** 弹幕 dmid */
   dmid: number;
+
   /** 弹幕文本 */
   text: string;
 }
@@ -69,8 +55,12 @@ function decColorToHex(colorDec: number): string {
 
 /** 将 B 站字号（18/25/36）映射为 BarrageItem textSize（vp，比默认偏小） */
 function mapFontSize(size: number): number {
-  if (size <= 18) return 9;
-  if (size >= 36) return 13;
+  if (size <= 18) {
+    return 9;
+  }
+  if (size >= 36) {
+    return 13;
+  }
   return 11;
 }
 
@@ -79,18 +69,26 @@ function mapFontSize(size: number): number {
 /** 根据文本长度计算弹幕滚动速度（调快） */
 function calcSpeed(text: string): number {
   let len: number = text.length;
-  if (len <= 5) return 2.2;
-  if (len <= 10) return 2.8;
-  if (len <= 20) return 3.2;
+  if (len <= 5) {
+    return 2.2;
+  }
+  if (len <= 10) {
+    return 2.8;
+  }
+  if (len <= 20) {
+    return 3.2;
+  }
   return 3.6;
 }
 
 // ===== 弹幕类型过滤 =====
 
 /** 判断是否是需要显示的弹幕类型（仅保留普通弹幕 1-6） */
-function isAllowedType(type: number, pool: number): boolean {
+function isAllowedType(type: number, _pool: number): boolean {
   // type 1-6 均为普通弹幕（滚动/底部/顶部/逆向）
-  if (type >= 1 && type <= 6) return true;
+  if (type >= 1 && type <= 6) {
+    return true;
+  }
   // 排除高级弹幕(7)、代码弹幕(8)、BAS 弹幕(9 + pool=2)
   return false;
 }

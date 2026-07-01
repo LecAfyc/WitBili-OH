@@ -1,46 +1,37 @@
 /**
  * Bilibili 观看历史 & 稍后再看相关 API
  *
- * 接口文档（BAC Document）：
- *   - 上报观看进度: /docs/video/report.html
- *   - 稍后再看:     /docs/historytoview/toview.html
  */
 
 import { ApiResponse, formatCount, httpGet, httpPostForm } from './CommonApi';
 import { getCookieValue } from './CookiesApi';
 import { VideoCard } from '../model/ContentCard';
 
-// ===== 类型定义 =====
 
-/** 上报观看进度结果 */
 export interface ReportProgressResult {
   success: boolean;
   code: number;
   message: string;
 }
 
-/** 稍后再看列表结果 */
 export interface ToViewListResult {
   items: VideoCard[];
   count: number;
   message: string;
 }
 
-/** 稍后再看写操作结果 */
 export interface ToViewActionResult {
   success: boolean;
   code: number;
   message: string;
 }
 
-/** 历史记录分页游标 */
 export interface HistoryCursor {
   max: number;
   viewAt: number;
   business: string;
 }
 
-/** 历史记录翻页结果 */
 export interface HistoryListResult {
   items: VideoCard[];
   cursor: HistoryCursor;
@@ -51,30 +42,13 @@ export interface HistoryListResult {
 // ===== 观看进度上报 =====
 
 /**
- * 上报视频观看进度（双端）
- *
- * 记录用户对某视频的观看进度，B 站将据此恢复播放位置。
- *
- * POST https://api.bilibili.com/x/v2/history/report
- * 认证方式：Cookie（SESSDATA）或 APP Token
- *
- * 注意：
- * - 需要登录（Cookie 中携带 SESSDATA）
- * - 如果需要上报到播放历史，建议周期性调用（如每 15 秒或暂停时），但本函数仅做单次进度上报
- * - progress 为 -1 或大于视频时长时，B 站会标记为已看完
+ * 上报视频观看进度
  *
  * @param aid      稿件 avid（必要）
  * @param cid      视频 cid，用于识别分 P（必要）
  * @param progress 观看进度（非必要，单位秒，默认 0）
  * @returns 上报结果（success 为 true 表示成功）
  *
- * 使用示例：
- * ```typescript
- * let result = await reportWatchProgress(13662970, 126654047, 1248);
- * if (result.success) {
- *   console.info('观看进度上报成功');
- * }
- * ```
  */
 export async function reportWatchProgress(aid: number, cid: number, progress?: number): Promise<ReportProgressResult> {
   let result: ReportProgressResult = {
@@ -133,20 +107,11 @@ export async function reportWatchProgress(aid: number, cid: number, progress?: n
 /**
  * 将视频加入稍后再看
  *
- * POST https://api.bilibili.com/x/v2/history/toview/add
- *
- * 认证方式：Cookie（SESSDATA）
- * 最多添加 100 个视频到稍后再看列表。
  *
  * @param aid  稿件 avid（非必要，与 bvid 二选一）
  * @param bvid 稿件 bvid（非必要，与 aid 二选一）
  * @returns 操作结果
  *
- * 使用示例：
- * ```typescript
- * let res = await addToView(41687433);
- * if (res.success) console.info('已加入稍后再看');
- * ```
  */
 export async function addToView(aid?: number, bvid?: string): Promise<ToViewActionResult> {
   let result: ToViewActionResult = {
@@ -204,27 +169,14 @@ export async function addToView(aid?: number, bvid?: string): Promise<ToViewActi
   return result;
 }
 
-// ===== 稍后再看 - 获取列表 =====
 
 /**
  * 获取稍后再看视频列表
  *
  * GET https://api.bilibili.com/x/v2/history/toview
  *
- * 认证方式：Cookie（SESSDATA）
- * 返回的列表按添加顺序排序，最多 100 项。
- * 返回值统一为 VideoCard[]，仅填充 title / upName / formatedView / cover / aid / bvid。
- *
  * @returns 稍后再看视频列表
  *
- * 使用示例：
- * ```typescript
- * let list = await getToViewList();
- * console.info('稍后再看共 ' + list.count + ' 个视频');
- * for (let v of list.items) {
- *   console.info(v.title + ' ' + v.bvid);
- * }
- * ```
  */
 export async function getToViewList(): Promise<ToViewListResult> {
   let result: ToViewListResult = {
@@ -293,27 +245,14 @@ export async function getToViewList(): Promise<ToViewListResult> {
   return result;
 }
 
-// ===== 稍后再看 - 删除 =====
 
 /**
  * 从稍后再看列表中删除视频
- *
- * POST https://api.bilibili.com/x/v2/history/toview/del
- *
- * 认证方式：Cookie（SESSDATA）
- * 两个参数互斥：
- *   - 传入 aid：删除指定视频
- *   - 传入 viewed=true：删除所有已观看的视频
  *
  * @param aid    删除的目标记录的 avid（非必要）
  * @param viewed 是否删除所有已观看的视频（非必要，默认 false）
  * @returns 操作结果
  *
- * 使用示例：
- * ```typescript
- * let res = await deleteToView(540580868);
- * let res2 = await deleteToView(undefined, true);
- * ```
  */
 export async function deleteToView(aid?: number, viewed?: boolean): Promise<ToViewActionResult> {
   let result: ToViewActionResult = {
@@ -372,34 +311,11 @@ export async function deleteToView(aid?: number, viewed?: boolean): Promise<ToVi
 /**
  * 获取观看历史记录列表（游标翻页）
  *
- * GET https://api.bilibili.com/x/web-interface/history/cursor
- *
- * 认证方式：Cookie（SESSDATA）
- *
- * 翻页方式（游标翻页 / 类无限滚动）：
- *   1. 首次调用：不传 max 参数（默认 0），获取第一页
- *   2. 加载下一页：传入上一页返回的 cursor 中的 max 和 viewAt
- *
- * 返回值统一为 VideoCard[]，仅填充 title / upName / cover / aid / bvid。
- * formatedView 无法从本 API 获取，保持默认空字符串。
- *
  * @param max      上一页最后一个记录的历史游标 oid（非必要，默认 0）
  * @param viewAt   上一页最后一个记录的观看时间戳（非必要，默认 0）
  * @param ps       每页数量（非必要，范围 1-30，默认 20）
  * @returns 历史记录列表和翻页游标
  *
- * 使用示例：
- * ```typescript
- * let page1 = await getHistoryList();
- * for (let v of page1.items) {
- *   console.info(v.title + ' ' + v.bvid);
- * }
- *
- * if (page1.hasMore) {
- *   let c = page1.cursor;
- *   let page2 = await getHistoryList(c.max, c.viewAt);
- * }
- * ```
  */
 export async function getHistoryList(
   max?: number,
@@ -473,7 +389,7 @@ export async function getHistoryList(
       let video: VideoCard = new VideoCard(
         (item['title'] as string) || '',
         (item['author_name'] as string) || '',
-        '',  // formatedView: 历史记录 API 未提供播放数
+        '', // formatedView: 历史记录 API 未提供播放数
         (item['cover'] as string) || (item['covers'] as string) || '',
         (history ? ((history['oid'] as number) || 0) : 0),
         (history ? ((history['bvid'] as string) || '') : '')

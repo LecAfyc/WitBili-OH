@@ -7,11 +7,11 @@
         "material": {
           "certpath": "C:\\Users\\skyuc\\.ohos\\config\\default_BiliTerm_OH_mYazD70NuPQa3t7Crwed2xVbZ3CwYglIWAxQo3f-WKE=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B908138FC54B4C4D4BEA8A6580CD1339C05D4C44DFAB60F40648DED02F2116A77E39A8B900A8A93",
+          "keyPassword": "0000001B31CD7D5DD850565273DAFDF30F971E135128FBCC1393EB443B6D0CEFC9391C5BE887E9A74C6987",
           "profile": "C:\\Users\\skyuc\\.ohos\\config\\default_BiliTerm_OH_mYazD70NuPQa3t7Crwed2xVbZ3CwYglIWAxQo3f-WKE=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\skyuc\\.ohos\\config\\default_BiliTerm_OH_mYazD70NuPQa3t7Crwed2xVbZ3CwYglIWAxQo3f-WKE=.p12",
-          "storePassword": "0000001BC37AF1063B073688438EFC80FBD5F91EB7800C513B315756A1E11CEDEF41429EF07A9F3E836946"
+          "storePassword": "0000001BB17288184067A2B57DF80455C0DE3A5511B6741438CBE521FF570EACAF90ACD547F1E0A5CFB282"
         }
       }
     ],

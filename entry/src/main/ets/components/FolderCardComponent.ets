@@ -13,7 +13,9 @@ export struct FolderCardComponent {
   @Consume('pageStack') pageStack: NavPathStack;
 
   toThumb(url: string): string {
-    if (url.indexOf('@') === -1) return url + '@60w_60h';
+    if (url.indexOf('@') === -1) {
+      return url + '@60w_60h';
+    }
     return url;
   }
 
@@ -70,7 +72,8 @@ export struct FolderCardComponent {
       .padding(8)
     }
     .width('100%')
-    .backgroundColor(this.color !== null && this.color !== undefined && this.color !== '' ? this.color : 'rgba(22,22,22,0.8)')
+    .backgroundColor(
+      this.color !== null && this.color !== undefined && this.color !== '' ? this.color : 'rgba(22,22,22,0.8)')
     .borderRadius(10)
     .onClick(() => {
       console.info('[FolderCard] 点击:', this.card.name, this.card.mlid);

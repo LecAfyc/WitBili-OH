@@ -11,7 +11,6 @@ import { VideoCardComponent } from '../VideoCardComponent';
 @Component
 export struct VideoRelatedRecommend {
   @Consume('pageStack') pageStack: NavPathStack;
-
   // ===== 对外属性 =====
   @Prop relatedVideos: VideoCard[] = [];
 
@@ -20,7 +19,7 @@ export struct VideoRelatedRecommend {
       // ===== 推荐列表 =====
       List({ space: 8 }) {
 
-        ListItem(){
+        ListItem() {
           Column().height('14%')
         }
 
@@ -30,7 +29,7 @@ export struct VideoRelatedRecommend {
           }
         })
 
-        ListItem(){
+        ListItem() {
           Column().height('14%')
         }
 
@@ -39,7 +38,7 @@ export struct VideoRelatedRecommend {
       .height('100%')
       .layoutWeight(1)
       .edgeEffect(EdgeEffect.Spring)
-      .padding({left: 16, right: 16})
+      .padding({ left: 16, right: 16 })
     }
     .width('100%')
     .height('100%')

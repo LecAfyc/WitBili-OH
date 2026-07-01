@@ -5,27 +5,28 @@ import { ArticleCard } from '../model/ContentCard';
 
 
 @Component
-export struct ArticleDetailPage{
+export struct ArticleDetailPage {
   @Consume('pageStack') pageStack: NavPathStack;
-
   // ==== 资源定义 ====
   @State pageParam: ArticleCard = new ArticleCard();
 
   build() {
-    NavDestination(){
-      ArcSwiper(){
+    NavDestination() {
+      ArcSwiper() {
         //视频详情页
-        Column(){
-          ArticleDetailComponent({card: this.pageParam})
+        Column() {
+          ArticleDetailComponent({ card: this.pageParam })
         }
+
         //评论区页
-        Column(){
-          CommentSection({aid: this.pageParam.cvid, type: [12]})
+        Column() {
+          CommentSection({ aid: this.pageParam.cvid, type: [12] })
         }
       }
       .indicator(false)
       .height('100%')
       .width('100%')
+
       Row() {
         Text('󰃚').fontSize(18).fontColor('#FB7299').width(24).textAlign(TextAlign.Center)
         Text('返回').fontSize(15).fontColor('#EEEEEE').margin({ left: 4 })
@@ -35,7 +36,11 @@ export struct ArticleDetailPage{
       .padding({ left: 2, top: 8, bottom: 8 })
       .borderRadius(10)
       .backgroundColor('rgba(22,22,22,0.6)')
-      .onClick(() => { if (this.pageStack) this.pageStack.pop(); })
+      .onClick(() => {
+        if (this.pageStack) {
+          this.pageStack.pop();
+        }
+      })
     }
     .height('100%')
     .width('100%')

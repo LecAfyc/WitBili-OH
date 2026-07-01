@@ -24,7 +24,6 @@ export class DashAudioRenderer {
   private avPlayer: media.AVPlayer | null = null;
   private state: AudioRenderState = AudioRenderState.IDLE;
   private stateCallback: AudioStateCallback | null = null;
-
   // 同步相关
   private readonly MAX_DRIFT_MS: number = 1000;
   private firstAudioPosMs: number = -1;
@@ -34,14 +33,6 @@ export class DashAudioRenderer {
 
   onStateChange(callback: AudioStateCallback): void {
     this.stateCallback = callback;
-  }
-
-  private setState(newState: AudioRenderState, message?: string): void {
-    if (newState === this.state) return;
-    let old = this.state;
-    this.state = newState;
-    console.info('[DashAudioRenderer] ' + old + ' → ' + newState + (message ? ' (' + message + ')' : ''));
-    this.stateCallback?.(newState, message);
   }
 
   getState(): AudioRenderState {
@@ -55,8 +46,6 @@ export class DashAudioRenderer {
   isAudioPlaying(): boolean {
     return this.state === AudioRenderState.PLAYING;
   }
-
-  // ===== 初始化 =====
 
   async init(url: string): Promise<void> {
     this.firstAudioPosMs = -1;
@@ -73,6 +62,101 @@ export class DashAudioRenderer {
     }
   }
 
+  // ===== 初始化 =====
+
+  play(): void {
+    let s = this.getState();
+    if (!this.avPlayer || s === AudioRenderState.RELEASED || s === AudioRenderState.ERROR) {
+      return;
+    }
+    try {
+      this.playStartMs = Date.now();
+      this.avPlayer.play();
+      this.setState(AudioRenderState.PLAYING);
+    } catch (e) {
+      console.error('[DashAudioRenderer] play 失败: ' + String(e));
+    }
+  }
+
+  pause(): void {
+    this.avPlayer?.pause();
+    this.setState(AudioRenderState.PAUSED);
+  }
+
+  // ===== 播放控制 =====
+
+  setSpeed(speed: number): void {
+    try {
+      this.avPlayer?.setSpeed(Math.max(0.5, Math.min(3.0, speed)));
+    } catch (e) {
+      console.warn('[DashAudioRenderer] setSpeed 失败: ' + String(e));
+    }
+  }
+
+  seekTo(positionMs: number): void {
+    this.seekCount++;
+    this.avPlayer?.seek(Math.round(positionMs));
+  }
+
+  stop(): void {
+    try {
+      this.avPlayer?.stop();
+    } catch (_e) { /* ignore */
+    }
+    this.setState(AudioRenderState.IDLE);
+  }
+
+  release(): void {
+    this.releaseSync();
+  }
+
+  syncPosition(videoPositionMs: number): void {
+    if (!this.avPlayer || (this.state !== AudioRenderState.PLAYING && this.state !== AudioRenderState.PAUSED)) {
+      return;
+    }
+    try {
+      let audioPosMs: number = this.getCurrentPositionMs();
+      let nowMs: number = Date.now();
+      let elapsedSincePlay: number = nowMs - this.playStartMs;
+
+      if (audioPosMs > 0 && this.firstAudioPosMs <= 0) {
+        this.firstAudioPosMs = audioPosMs;
+        console.info('[DashAudioRenderer] ⏱ 首次音频位置: ' + audioPosMs + 'ms');
+      }
+
+      if (nowMs - this.lastDiagLogMs > 5000) {
+        this.lastDiagLogMs = nowMs;
+        console.info(
+          '[DashAudioRenderer] 📊 a=' + Math.round(audioPosMs) + 'ms v=' + Math.round(videoPositionMs) + 'ms seek#' +
+            this.seekCount);
+      }
+
+      if (audioPosMs <= 0 || (elapsedSincePlay < 2000 && audioPosMs < 1000)) {
+        return;
+      }
+
+      let drift: number = audioPosMs - videoPositionMs;
+      if (Math.abs(drift) > this.MAX_DRIFT_MS && Math.abs(drift) < 30000) {
+        console.info('[DashAudioRenderer] 🔄 漂移' + Math.round(drift) + 'ms，seek');
+        this.seekTo(videoPositionMs);
+      } else if (Math.abs(drift) >= 30000) {
+        console.warn('[DashAudioRenderer] ⚠️ 漂移过大 ' + Math.round(drift) + 'ms，跳过 seek');
+      }
+    } catch (e) {
+      console.warn('[DashAudioRenderer] syncPosition: ' + String(e));
+    }
+  }
+
+  private setState(newState: AudioRenderState, message?: string): void {
+    if (newState === this.state) {
+      return;
+    }
+    let old = this.state;
+    this.state = newState;
+    console.info('[DashAudioRenderer] ' + old + ' → ' + newState + (message ? ' (' + message + ')' : ''));
+    this.stateCallback?.(newState, message);
+  }
+
   private async initAVPlayer(url: string): Promise<void> {
     let avp: media.AVPlayer = await media.createAVPlayer();
     this.avPlayer = avp;
@@ -84,7 +168,9 @@ export class DashAudioRenderer {
       'Origin': HEADERS['Origin']
     };
     let cookieStr: string = getCookieString();
-    if (cookieStr) headers['Cookie'] = cookieStr;
+    if (cookieStr) {
+      headers['Cookie'] = cookieStr;
+    }
 
     let mediaSource: media.MediaSource = media.createMediaSourceWithUrl(url, headers);
     let strategy: media.PlaybackStrategy = { preferredBufferDuration: 20 };
@@ -126,48 +212,7 @@ export class DashAudioRenderer {
     });
   }
 
-  // ===== 播放控制 =====
-
-  play(): void {
-    let s = this.getState();
-    if (!this.avPlayer || s === AudioRenderState.RELEASED || s === AudioRenderState.ERROR) return;
-    try {
-      this.playStartMs = Date.now();
-      this.avPlayer.play();
-      this.setState(AudioRenderState.PLAYING);
-    } catch (e) {
-      console.error('[DashAudioRenderer] play 失败: ' + String(e));
-    }
-  }
-
-  pause(): void {
-    this.avPlayer?.pause();
-    this.setState(AudioRenderState.PAUSED);
-  }
-
-  setSpeed(speed: number): void {
-    try {
-      this.avPlayer?.setSpeed(Math.max(0.5, Math.min(3.0, speed)));
-    } catch (e) {
-      console.warn('[DashAudioRenderer] setSpeed 失败: ' + String(e));
-    }
-  }
-
-  seekTo(positionMs: number): void {
-    this.seekCount++;
-    this.avPlayer?.seek(Math.round(positionMs));
-  }
-
-  stop(): void {
-    try {
-      this.avPlayer?.stop();
-    } catch (_e) { /* ignore */ }
-    this.setState(AudioRenderState.IDLE);
-  }
-
-  release(): void {
-    this.releaseSync();
-  }
+  // ===== 音画同步 =====
 
   private releaseSync(): void {
     try {
@@ -177,40 +222,5 @@ export class DashAudioRenderer {
     }
     this.avPlayer = null;
     this.setState(AudioRenderState.RELEASED);
-  }
-
-  // ===== 音画同步 =====
-
-  syncPosition(videoPositionMs: number): void {
-    if (!this.avPlayer || (this.state !== AudioRenderState.PLAYING && this.state !== AudioRenderState.PAUSED)) {
-      return;
-    }
-    try {
-      let audioPosMs: number = this.getCurrentPositionMs();
-      let nowMs: number = Date.now();
-      let elapsedSincePlay: number = nowMs - this.playStartMs;
-
-      if (audioPosMs > 0 && this.firstAudioPosMs <= 0) {
-        this.firstAudioPosMs = audioPosMs;
-        console.info('[DashAudioRenderer] ⏱ 首次音频位置: ' + audioPosMs + 'ms');
-      }
-
-      if (nowMs - this.lastDiagLogMs > 5000) {
-        this.lastDiagLogMs = nowMs;
-        console.info('[DashAudioRenderer] 📊 a=' + Math.round(audioPosMs) + 'ms v=' + Math.round(videoPositionMs) + 'ms seek#' + this.seekCount);
-      }
-
-      if (audioPosMs <= 0 || (elapsedSincePlay < 2000 && audioPosMs < 1000)) return;
-
-      let drift: number = audioPosMs - videoPositionMs;
-      if (Math.abs(drift) > this.MAX_DRIFT_MS && Math.abs(drift) < 30000) {
-        console.info('[DashAudioRenderer] 🔄 漂移' + Math.round(drift) + 'ms，seek');
-        this.seekTo(videoPositionMs);
-      } else if (Math.abs(drift) >= 30000) {
-        console.warn('[DashAudioRenderer] ⚠️ 漂移过大 ' + Math.round(drift) + 'ms，跳过 seek');
-      }
-    } catch (e) {
-      console.warn('[DashAudioRenderer] syncPosition: ' + String(e));
-    }
   }
 }

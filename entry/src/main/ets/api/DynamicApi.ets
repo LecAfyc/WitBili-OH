@@ -8,7 +8,7 @@
 import { httpGet, httpPostForm, ApiResponse, decodeHTML } from './CommonApi';
 import { signWBI } from './WbiSign';
 import { cookieMap } from './LoginApi';
-import { Dynamic, DynamicStats } from '../model/Dynamic';
+import { Dynamic } from '../model/Dynamic';
 import { UserCard } from '../model/UserCard';
 import { VideoCard, ArticleCard } from '../model/ContentCard';
 
@@ -19,16 +19,18 @@ const DYNAMIC_API_BASE: string = 'https://api.bilibili.com/x/polymer/web-dynamic
 /** 功能性特性开关（与 web 端一致） */
 const FEATURES: string =
   'itemOpusStyle,opusBigCover,listOnlyfans,onlyfansVote,' +
-  'forwardListHidden,decorationCard,commentsNewVersion,' +
-  'onlyfansAssetsV2,ugcDelete,onlyfansQaCard,eva3CardOpus';
+    'forwardListHidden,decorationCard,commentsNewVersion,' +
+    'onlyfansAssetsV2,ugcDelete,onlyfansQaCard,eva3CardOpus';
 
 // ===== 返回类型 =====
 
 export interface DynamicListResult {
   /** 本页动态列表 */
   list: Dynamic[];
+
   /** 下一页偏移值，为空字符串 "" 表示已到底 */
   offset: string;
+
   /** 更新基线值（用于 checkDynamicUpdate），首页动态才有意义 */
   updateBaseline: string;
 }
@@ -139,7 +141,9 @@ export async function getDynamicDetail(id: number): Promise<Dynamic | null> {
 
   const data = resp.data as Record<string, Object>;
   const item = data['item'] as Record<string, Object> | undefined;
-  if (!item) return null;
+  if (!item) {
+    return null;
+  }
 
   return parseDynamicItem(item);
 }
@@ -196,8 +200,8 @@ export async function likeDynamic(dyid: number, like: boolean): Promise<boolean>
 
   const formData: string =
     'dynamic_id=' + dyid
-    + '&up=' + (like ? 1 : 2)
-    + '&csrf_token=' + encodeURIComponent(csrf);
+      + '&up=' + (like ? 1 : 2)
+      + '&csrf_token=' + encodeURIComponent(csrf);
 
   console.info('[DynamicApi] likeDynamic: dyid=' + dyid + ' like=' + like);
 
@@ -240,14 +244,18 @@ function parseDynamicItem(item: Record<string, Object>): Dynamic {
 
   // --- id ---
   const idStr = item['id_str'] as string | undefined;
-  if (idStr) dyn.dynamicId = Number(idStr);
+  if (idStr) {
+    dyn.dynamicId = Number(idStr);
+  }
   dyn.type = (item['type'] as string) ?? '';
 
   // --- basic ---
   const basic = item['basic'] as Record<string, Object> | undefined;
   if (basic) {
     const cidStr = basic['comment_id_str'] as string | undefined;
-    if (cidStr) dyn.comment_id = Number(cidStr);
+    if (cidStr) {
+      dyn.comment_id = Number(cidStr);
+    }
     dyn.comment_type = (basic['comment_type'] as number) ?? 0;
   }
 
@@ -259,7 +267,9 @@ function parseDynamicItem(item: Record<string, Object>): Dynamic {
 
   // --- modules ---
   const modules = item['modules'] as Record<string, Object> | undefined;
-  if (!modules) return dyn;
+  if (!modules) {
+    return dyn;
+  }
 
   // --- module_author: 发布者 ---
   const author = modules['module_author'] as Record<string, Object> | undefined;
@@ -344,7 +354,9 @@ function parseRichText(
   nodes: Array<Record<string, Object>> | undefined,
   dyn: Dynamic
 ): void {
-  if (!nodes || nodes.length === 0) return;
+  if (!nodes || nodes.length === 0) {
+    return;
+  }
 
   let textBuilder: string = '';
   const emoteMap: Map<string, string> = new Map();
@@ -381,7 +393,9 @@ function parseRichText(
         const rid = Number(node['rid'] ?? 0);
         // 去掉 "@" 和末尾空格获取用户名
         let uname: string = text;
-        if (uname.startsWith('@')) uname = uname.substring(1);
+        if (uname.startsWith('@')) {
+          uname = uname.substring(1);
+        }
         uname = uname.trim();
         if (uname && rid > 0) {
           const card = new UserCard(uname, '', rid);
@@ -416,12 +430,16 @@ function parseMajor(major: Record<string, Object>, dyn: Dynamic): void {
   switch (majorType) {
     case 'MAJOR_TYPE_ARCHIVE': {
       const archive = major['archive'] as Record<string, Object> | undefined;
-      if (archive) dyn.major_object = parseVideoCard(archive);
+      if (archive) {
+        dyn.major_object = parseVideoCard(archive);
+      }
       break;
     }
     case 'MAJOR_TYPE_UGC_SEASON': {
       const ugc = major['ugc_season'] as Record<string, Object> | undefined;
-      if (ugc) dyn.major_object = parseVideoCard(ugc);
+      if (ugc) {
+        dyn.major_object = parseVideoCard(ugc);
+      }
       break;
     }
     case 'MAJOR_TYPE_PGC': {
@@ -462,7 +480,9 @@ function parseMajor(major: Record<string, Object>, dyn: Dynamic): void {
           const pics: string[] = [];
           for (let i = 0; i < items.length; i++) {
             const src = items[i]['src'] as string;
-            if (src) pics.push(src);
+            if (src) {
+              pics.push(src);
+            }
           }
           dyn.pictures = pics;
           dyn.major_object = pics;
@@ -480,7 +500,9 @@ function parseMajor(major: Record<string, Object>, dyn: Dynamic): void {
           const picUrls: string[] = [];
           for (let i = 0; i < pics.length; i++) {
             const url = pics[i]['url'] as string;
-            if (url) picUrls.push(url);
+            if (url) {
+              picUrls.push(url);
+            }
           }
           dyn.pictures = picUrls;
           dyn.major_object = picUrls;

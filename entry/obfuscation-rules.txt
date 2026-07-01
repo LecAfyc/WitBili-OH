@@ -21,8 +21,6 @@
 -enable-toplevel-obfuscation
 -enable-filename-obfuscation
 -enable-export-obfuscation
--enable-filename-obfuscation
 -remove-comments
--enable-string-property-obfuscation
 -compact
 -remove-log

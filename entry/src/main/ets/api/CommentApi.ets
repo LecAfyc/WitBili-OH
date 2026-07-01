@@ -1,16 +1,6 @@
 /**
  * 评论区 API
  *
- * 基于 Bilibili BAC 文档的评论区相关接口封装。
- * 只使用翻页加载模式（x/v2/reply），不使用懒加载（需要 Wbi 签名）。
- * 不做热评、投票、粉丝灯牌等未提及功能。
- *
- * 对外函数：
- *   1. getCommentCount(aid) → 视频评论总数
- *   2. getCommentList(aid, pn) → 当前页评论列表 + 总数
- *   3. getCommentReplies(type, oid, root, pn) → 指定评论的回复列表 + 总数
- *   4. likeComment(type, oid, rpid, action) → 点赞/取消赞评论
- *   5. hateComment(type, oid, rpid, action) → 点踩/取消踩评论
  */
 
 import { httpGet, httpPostForm, ApiResponse, decodeHTML } from './CommonApi';
@@ -26,12 +16,12 @@ const API_BASE: string = 'https://api.bilibili.com/x/v2/reply';
 
 export interface PagedComments {
   list: SingleComment[];
-  total: number;  // 根评论总数（不是含回复的总数）
+  total: number; // 根评论总数（不是含回复的总数）
 }
 
 export interface PagedReplies {
   list: SingleComment[];
-  total: number;  // 回复总数
+  total: number; // 回复总数
 }
 
 // ===== 辅助：将 API JSON 解析为 SingleComment =====
@@ -80,13 +70,12 @@ function parseCommentItem(item: Record<string, Object>): SingleComment {
     comment.message = decodeHTML((content['message'] as string) ?? '');
 
     // emote → emoteMap: { "表情名" → "图片url" }
-    // ⚠️ API 返回的 key 带方括号 "[大哭]"，存入时去掉括号便于 UI 按捕获组查找
     const emote = content['emote'] as Record<string, Object> | undefined;
     if (emote) {
       const keys: string[] = Object.keys(emote);
       console.info('[CommentApi] emote count: ' + keys.length);
       for (let i = 0; i < keys.length; i++) {
-        const fullKey = keys[i];  // "[大哭]"
+        const fullKey = keys[i]; // "[大哭]"
         const name = fullKey.length >= 2 ? fullKey.substring(1, fullKey.length - 1) : fullKey;
         const emojiObj = emote[fullKey] as Record<string, Object> | undefined;
         const url = emojiObj ? (emojiObj['url'] as string) : '';
@@ -120,9 +109,9 @@ function parseCommentItem(item: Record<string, Object>): SingleComment {
     }
 
     // --- 当前用户操作状态（0=无 1=已点赞 2=已点踩） ---
-  comment.action = (item['action'] as number) ?? 0;
+    comment.action = (item['action'] as number) ?? 0;
 
-  // 部分响应的 content 中有 pictures 字段（评论区带图）
+    // 部分响应的 content 中有 pictures 字段（评论区带图）
     // 自动转为缩略图 URL，避免手表加载原图
     const pics = content['pictures'] as Array<Record<string, Object>> | undefined;
     if (pics) {
@@ -195,17 +184,26 @@ export async function likeComment(type: number, oid: number, rpid: number, actio
   }
   console.info('[CommentApi] likeComment: rpid=' + rpid + ' action=' + action);
 
-  let formData: string = 'type=' + type + '&oid=' + oid + '&rpid=' + rpid + '&action=' + action + '&csrf=' + encodeURIComponent(csrf);
+  let formData: string =
+    'type=' + type + '&oid=' + oid + '&rpid=' + rpid + '&action=' + action + '&csrf=' + encodeURIComponent(csrf);
   try {
     let resp: ApiResponse = await httpPostForm('https://api.bilibili.com/x/v2/reply/action', formData);
     console.info('[CommentApi] likeComment 响应 code=' + resp.code + ' msg=' + resp.message);
     if (resp.code === 0) {
       return { success: true, message: action === 1 ? '点赞成功' : '已取消点赞' };
     }
-    if (resp.code === 12004) return { success: false, message: '禁止操作' };
-    if (resp.code === 12006) return { success: false, message: '评论已删除' };
-    if (resp.code === -111) return { success: false, message: '校验失败，请重新登录' };
-    if (resp.code === -101) return { success: false, message: '登录状态已失效' };
+    if (resp.code === 12004) {
+      return { success: false, message: '禁止操作' };
+    }
+    if (resp.code === 12006) {
+      return { success: false, message: '评论已删除' };
+    }
+    if (resp.code === -111) {
+      return { success: false, message: '校验失败，请重新登录' };
+    }
+    if (resp.code === -101) {
+      return { success: false, message: '登录状态已失效' };
+    }
     return { success: false, message: '操作失败(' + resp.code + ')' };
   } catch (e) {
     console.error('[CommentApi] likeComment 异常:', String(e));
@@ -233,17 +231,26 @@ export async function hateComment(type: number, oid: number, rpid: number, actio
   }
   console.info('[CommentApi] hateComment: rpid=' + rpid + ' action=' + action);
 
-  let formData: string = 'type=' + type + '&oid=' + oid + '&rpid=' + rpid + '&action=' + action + '&csrf=' + encodeURIComponent(csrf);
+  let formData: string =
+    'type=' + type + '&oid=' + oid + '&rpid=' + rpid + '&action=' + action + '&csrf=' + encodeURIComponent(csrf);
   try {
     let resp: ApiResponse = await httpPostForm('https://api.bilibili.com/x/v2/reply/hate', formData);
     console.info('[CommentApi] hateComment 响应 code=' + resp.code + ' msg=' + resp.message);
     if (resp.code === 0) {
       return { success: true, message: action === 1 ? '点踩成功' : '已取消点踩' };
     }
-    if (resp.code === 12004) return { success: false, message: '禁止操作' };
-    if (resp.code === 12006) return { success: false, message: '评论已删除' };
-    if (resp.code === -111) return { success: false, message: '校验失败，请重新登录' };
-    if (resp.code === -101) return { success: false, message: '登录状态已失效' };
+    if (resp.code === 12004) {
+      return { success: false, message: '禁止操作' };
+    }
+    if (resp.code === 12006) {
+      return { success: false, message: '评论已删除' };
+    }
+    if (resp.code === -111) {
+      return { success: false, message: '校验失败，请重新登录' };
+    }
+    if (resp.code === -101) {
+      return { success: false, message: '登录状态已失效' };
+    }
     return { success: false, message: '操作失败(' + resp.code + ')' };
   } catch (e) {
     console.error('[CommentApi] hateComment 异常:', String(e));

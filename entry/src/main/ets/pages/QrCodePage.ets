@@ -1,17 +1,22 @@
 @Component
-export struct QRCodePage{
+export struct QRCodePage {
   @Consume('pageStack') pageStack: NavPathStack;
   pathStack: NavPathStack | undefined = undefined;
   pageParam: string = '';
 
   build() {
-    NavDestination(){
-      List(){
-        ListItem(){
-          Text(this.pageParam).fontSize('25px').margin({top:30}).width('60%')
+    NavDestination() {
+      List() {
+        ListItem() {
+          Text(this.pageParam).fontSize('25px').margin({ top: 30 }).width('60%')
         }
-        ListItem(){
-          QRCode(this.pageParam).width('65%').height('65%').backgroundColor('rgba(255,255,255,0.75)').margin({top:4,bottom:30})
+
+        ListItem() {
+          QRCode(this.pageParam)
+            .width('65%')
+            .height('65%')
+            .backgroundColor('rgba(255,255,255,0.75)')
+            .margin({ top: 4, bottom: 30 })
         }
       }
       .height('100%')

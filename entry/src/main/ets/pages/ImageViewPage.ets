@@ -1,9 +1,8 @@
 @Component
-export struct ImageViewPage{
+export struct ImageViewPage {
   @Consume('pageStack') pageStack: NavPathStack;
   pathStack: NavPathStack | undefined = undefined;
-  pageParam: string = '';   // 传入的图片URL
-
+  pageParam: string = ''; // 传入的图片URL
   // 图片缩放与拖拽状态
   @State curScale: number = 1.0;
   @State curOffsetX: number = 0;
@@ -13,13 +12,11 @@ export struct ImageViewPage{
   // 缩放范围（只保留最大/最小限制，无自动贴合）
   private readonly MIN_SCALE: number = 0.5;
   private readonly MAX_SCALE: number = 5.0;
-
   // 边界限制参数
   private maxOffsetX: number = 0;
   private minOffsetX: number = 0;
   private maxOffsetY: number = 0;
   private minOffsetY: number = 0;
-
   // 手势保存状态
   private saveScale: number = 1.0;
   private saveOffsetX: number = 0;
@@ -126,7 +123,7 @@ export struct ImageViewPage{
   }
 
   build() {
-    NavDestination(){
+    NavDestination() {
       Stack() {
         // 黑底背景
         Rect()

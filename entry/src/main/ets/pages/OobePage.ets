@@ -2,14 +2,14 @@ import { ArcSwiper } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 
 @Component
-export struct OobePage{
+export struct OobePage {
   @Consume('pageStack') pageStack: NavPathStack;
   @State agr: boolean = false;
   pathStack: NavPathStack | undefined = undefined;
   pageParam: string = '';
 
   build() {
-    NavDestination(){
+    NavDestination() {
       ArcSwiper() {
         Column() {
           Image($r("app.media.startIcon")).width('20%').height('20%')
@@ -27,7 +27,7 @@ export struct OobePage{
         .height('100%')
         .justifyContent(FlexAlign.Center)
 
-        if (!this.agr){
+        if (!this.agr) {
           Column() {
             Text('请仔细阅读用户协议')
               .fontSize('18vp')
@@ -87,7 +87,7 @@ export struct OobePage{
           })
         }
 
-        if(this.agr){
+        if (this.agr) {
           Column() {
             Text('提示')
               .fontSize('18vp')
@@ -95,7 +95,7 @@ export struct OobePage{
               .fontWeight(FontWeight.Bold)
               .fontWeight(FontWeight.Medium)
               .textAlign(TextAlign.Center)
-              .margin({ bottom: 8})
+              .margin({ bottom: 8 })
               .padding({ left: 10, right: 10 })
 
             Image($r('app.media.tip'))
@@ -127,10 +127,10 @@ export struct OobePage{
               .fontWeight(FontWeight.Bold)
               .fontWeight(FontWeight.Medium)
               .textAlign(TextAlign.Center)
-              .margin({ bottom: 8})
+              .margin({ bottom: 8 })
               .padding({ left: 10, right: 10 })
 
-            Text('你现在使用的是非常不稳定的Dev版本！已知Bug：\n' +
+            Text('你现在使用的是非常不稳定的测试版本！已知Bug：\n' +
               '登录过一天就会掉\n' +
               '部分功能缺失\n' +
               '永远卡在“正在加载”页面\n' +
@@ -161,7 +161,7 @@ export struct OobePage{
               .fontWeight(FontWeight.Bold)
               .fontWeight(FontWeight.Medium)
               .textAlign(TextAlign.Center)
-              .margin({ bottom: 8 , top: 10})
+              .margin({ bottom: 8, top: 10 })
               .padding({ left: 10, right: 10 })
 
             SymbolGlyph($r("sys.symbol.person"))
@@ -183,7 +183,9 @@ export struct OobePage{
               .borderRadius(20)
               .margin({ top: 12 })
               .onClick(() => {
-                if(AppStorage.get<string>('AccountData') === 'null') this.pageStack.pushPath({name: "Login"})
+                if (AppStorage.get<string>('AccountData') === 'null') {
+                  this.pageStack.pushPath({ name: "Login" })
+                }
               })
           }
           .width('100%')
@@ -196,23 +198,28 @@ export struct OobePage{
             playMode: PlayMode.Alternate,
           })
 
-          Column(){
+          Column() {
             Image($r("app.media.startIcon")).width('20%').height('20%')
             Text("WitBili-OH")
               .fontSize('45px')
               .fontWeight(FontWeight.Bold)
-              .margin({top:6})
+              .margin({ top: 6 })
               .fontColor('#FB7299')
-            Button(">>> 开始WitBili-OH之旅",{ type: ButtonType.Capsule, stateEffect: false })
+            Button(">>> 开始WitBili-OH之旅", { type: ButtonType.Capsule, stateEffect: false })
               .fontSize('27px')
               .fontWeight(FontWeight.Bold)
-              .margin({top:6})
-              .shadow({ radius: 2, color: 'rgba(0, 0, 0, 0.55)', offsetX: 2, offsetY: 2 })
+              .margin({ top: 6 })
+              .shadow({
+                radius: 2,
+                color: 'rgba(0, 0, 0, 0.55)',
+                offsetX: 2,
+                offsetY: 2
+              })
               .backgroundColor(Color.Transparent)
               .fontColor('#FB7299')
               .border({ width: 1, color: '#FB7299' })
               .onClick(() => {
-                this.pageStack.pushPath({name: "Rcmd", param: ""});
+                this.pageStack.pushPath({ name: "Rcmd", param: "" });
               })
           }
           .width('100%')

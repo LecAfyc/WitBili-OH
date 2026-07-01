@@ -45,14 +45,12 @@ interface Seg {
 @Component
 export struct DynamicCardComponent {
   @Consume('pageStack') pageStack: NavPathStack;
-
   @Prop dynamic: Dynamic = new Dynamic();
   @Prop isExpand: boolean = false;
   @Prop isForwarded: boolean = false;
   /** 点赞状态（独立 @State 以触发 UI 刷新） */
   @State isLiked: boolean = false;
   @State likeCount: number = 0;
-
   private readonly fs: number = 13;
   private readonly lh: number = 20;
   private readonly maxLines: number = 4;
@@ -77,13 +75,14 @@ export struct DynamicCardComponent {
 
       if (m[1] !== undefined) {
         // [表情名]
-        const val: string | undefined = emojiMap.get(m[1]);  // url||size
+        const val: string | undefined = emojiMap.get(m[1]); // url||size
         if (val) {
           const sep: number = val.indexOf('||');
           const url: string = sep !== -1 ? val.substring(0, sep) : val;
           const size: number = sep !== -1 ? Number(val.substring(sep + 2)) || 1 : 1;
           segs.push({
-            kind: SegKind.EMOJI, text: m[0],
+            kind: SegKind.EMOJI,
+            text: m[0],
             emojiUrl: url,
             emojiSize: size === 2 ? 28 : 18
           });
@@ -147,39 +146,6 @@ export struct DynamicCardComponent {
     this.isLiked = this.dynamic.stats.liked;
     this.likeCount = this.dynamic.stats.like;
   }
-
-  private async onLikeClick(): Promise<void> {
-    if (this.dynamic.dynamicId <= 0) return;
-
-    const prevLiked: boolean = this.isLiked;
-    const prevLike: number = this.likeCount;
-    const newLiked: boolean = !prevLiked;
-
-    // 先乐观更新 UI（@State 变化触发重绘）
-    this.isLiked = newLiked;
-    this.likeCount = newLiked ? prevLike + 1 : prevLike - 1;
-    this.dynamic.stats.liked = newLiked;
-    this.dynamic.stats.like = newLiked ? prevLike + 1 : prevLike - 1;
-
-    // 再调 API
-    const result: boolean = await likeDynamic(this.dynamic.dynamicId, newLiked);
-    if (!result) {
-      // API 失败 -> 撤回
-      this.isLiked = prevLiked;
-      this.likeCount = prevLike;
-      this.toast('操作失败');
-    }else this.toast(newLiked ? '已点赞' : '已取消赞');
-  }
-
-  private toast(msg: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 1500 });
-    } catch (e) {
-      console.warn('[DynamicCard] Toast 异常:', String(e));
-    }
-  }
-
-  // ----------------------------  构建  ----------------------------
 
   build() {
     Column() {
@@ -317,7 +283,7 @@ export struct DynamicCardComponent {
           .borderRadius(8)
           .margin({ left: 12, right: 12, top: 6 })
           .onClick(() => {
-            this.pageStack.pushPath({name: 'DynamicDetailPage', param: this.dynamic.dynamic_forward!})
+            this.pageStack.pushPath({ name: 'DynamicDetailPage', param: this.dynamic.dynamic_forward! })
           })
       }
 
@@ -337,7 +303,9 @@ export struct DynamicCardComponent {
               .margin({ left: 3 })
           }
         }
-        .onClick(() => { this.onLikeClick() })
+        .onClick(() => {
+          this.onLikeClick()
+        })
         .padding({ top: 6, bottom: 6, right: 16 })
 
         Blank()
@@ -360,11 +328,53 @@ export struct DynamicCardComponent {
         .padding({ top: 6, bottom: 6 })
       }
       .width('100%')
-      .padding({ left: 12, right: 12, top: 4, bottom: 2 })
+      .padding({
+        left: 12,
+        right: 12,
+        top: 4,
+        bottom: 2
+      })
     }
     .width('100%')
     .backgroundColor(this.isForwarded ? '#222222' : '#1A1A1A')
     .borderRadius(12)
     .margin({ bottom: this.isForwarded ? 0 : 8 })
+  }
+
+  private async onLikeClick(): Promise<void> {
+    if (this.dynamic.dynamicId <= 0) {
+      return;
+    }
+
+    const prevLiked: boolean = this.isLiked;
+    const prevLike: number = this.likeCount;
+    const newLiked: boolean = !prevLiked;
+
+    // 先乐观更新 UI（@State 变化触发重绘）
+    this.isLiked = newLiked;
+    this.likeCount = newLiked ? prevLike + 1 : prevLike - 1;
+    this.dynamic.stats.liked = newLiked;
+    this.dynamic.stats.like = newLiked ? prevLike + 1 : prevLike - 1;
+
+    // 再调 API
+    const result: boolean = await likeDynamic(this.dynamic.dynamicId, newLiked);
+    if (!result) {
+      // API 失败 -> 撤回
+      this.isLiked = prevLiked;
+      this.likeCount = prevLike;
+      this.toast('操作失败');
+    } else {
+      this.toast(newLiked ? '已点赞' : '已取消赞');
+    }
+  }
+
+  // ----------------------------  构建  ----------------------------
+
+  private toast(msg: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 1500 });
+    } catch (e) {
+      console.warn('[DynamicCard] Toast 异常:', String(e));
+    }
   }
 }
