@@ -114,11 +114,9 @@ export struct VideoDetailArc {
       if (list.length > 0) {
         this.qualities = list;
         // 默认选第一个（最高清晰度）
-        this.selectedQn = list[0].qn;
+        this.selectedQn = Math.min(list[0].qn,80);
         console.info('[VideoDetail] 清晰度列表加载完成: ' + list.length + ' 项');
-        for (let i: number = 0; i < list.length; i++) {
-          console.info('  [' + i + '] name=' + list[i].name + ' qn=' + list[i].qn);
-        }
+        for (let i: number = 0; i < list.length; i++) console.info('  [' + i + '] name=' + list[i].name + ' qn=' + list[i].qn);
       }
     } catch (e) {
       console.warn('[VideoDetail] 加载清晰度列表失败:', String(e));
@@ -482,19 +480,21 @@ export struct VideoDetailArc {
               Scroll() {
                 Row({ space: 6 }) {
                   ForEach(this.qualities, (item: VideoQuality) => {
-                    Text(item.name)
-                      .fontSize(12)
-                      .fontColor(item.qn === this.selectedQn ? '#FB7299' : '#CCCCCC')
-                      .fontWeight(item.qn === this.selectedQn ? FontWeight.Bold : FontWeight.Regular)
-                      .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-                      .borderRadius(12)
-                      .backgroundColor(item.qn === this.selectedQn
-                        ? 'rgba(251,114,153,0.15)'
-                        : 'rgba(66,66,66,0.4)')
-                      .onClick(() => {
-                        this.selectedQn = item.qn;
-                        console.info('[VideoDetail] 切换清晰度:', item.name, 'qn=' + item.qn);
-                      })
+                    if (item.qn !== 120 && item.qn !== 116){
+                      Text(item.name)
+                        .fontSize(12)
+                        .fontColor(item.qn === this.selectedQn ? '#FB7299' : '#CCCCCC')
+                        .fontWeight(item.qn === this.selectedQn ? FontWeight.Bold : FontWeight.Regular)
+                        .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+                        .borderRadius(12)
+                        .backgroundColor(item.qn === this.selectedQn
+                          ? 'rgba(251,114,153,0.15)'
+                          : 'rgba(66,66,66,0.4)')
+                        .onClick(() => {
+                          this.selectedQn = item.qn;
+                          console.info('[VideoDetail] 切换清晰度:', item.name, 'qn=' + item.qn);
+                        })
+                    }
                   }, (item: VideoQuality) => String(item.qn))
                 }
               }

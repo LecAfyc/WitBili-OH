@@ -25,4 +25,4 @@
 -remove-comments
 -enable-string-property-obfuscation
 -compact
-# -remove-log
+-remove-log

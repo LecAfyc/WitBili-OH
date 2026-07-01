@@ -21,6 +21,9 @@ import { getCookieString } from '../api/CookiesApi';
 import { HEADERS } from '../api/CommonApi';
 import { BarrageView, BarrageController, BarrageItem, BarrageOption } from '@esky/barrage';
 import { getDanmakuItems, DanmakuData, createBarrageItem } from '../api/DanmakuApi';
+import batteryInfo from '@ohos.batteryInfo';
+import { audio as harmoniousAudio } from '@kit.AudioKit';
+import { window } from '@kit.ArkUI';
 
 @Component
 export struct VideoPlayerPage {
@@ -95,6 +98,11 @@ export struct VideoPlayerPage {
   private controlsTimerId: number | undefined = undefined;
   private moreProgressTimerId: number | undefined = undefined;
   @State danmakuEnabled: boolean = true;
+  @State currentVolume: number = 0.8;
+  @State currentBrightness: number = 0.5;
+  @State batteryLevel: number = 100;
+  @State currentTimeDisplay: string = '';
+  private timeTickTimerId: number | undefined = undefined;
 
 
   pause(): void {
@@ -206,12 +214,16 @@ export struct VideoPlayerPage {
             })
 
             if (this.stateText) {
-              Text(this.stateText)
-                .fontSize(12).fontColor('#AAAAAA')
-                .position({ x: 80, y: 8 })
-                .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                .backgroundColor('rgba(0,0,0,0.5)')
-                .borderRadius(8)
+              Row(){
+                Text(this.stateText)
+                  .fontSize(12).fontColor('#AAAAAA')
+                  .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+                  .backgroundColor('rgba(0,0,0,0.5)')
+                  .borderRadius(8)
+              }
+              .position({ x: 0, y: 8 })
+              .justifyContent(FlexAlign.Center)
+              .width('100%')
             }
 
             if (this.barrageReady && this.danmakuEnabled) {
@@ -359,6 +371,7 @@ export struct VideoPlayerPage {
         backgroundColor: '#1C1C1E',
         onDisappear: () => {
           this.clearMoreProgressTimer();
+          this.clearTimeTickTimer();
           if (this.wasPlayingBeforeSheet) {
             this.resume();
           }
@@ -535,9 +548,9 @@ export struct VideoPlayerPage {
     reportWatchProgress(vCard.aid, cid, progressSec).then((result) => {
       if (this.isPlaying) {
         if (result.success) {
-          this.setStateText('');  // 成功不额外提示，仅清除错误提示
+          this.setStateText('已上传历史记录');
         } else if (result.code !== -101) {
-          this.setStateText('上报失败: ' + result.message);
+          this.setStateText('历史记录上报失败: ' + result.message);
         }
       }
     });
@@ -616,7 +629,7 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer.native_setup();
 
       this.mIjkMediaPlayer.setOption('4', 'start-on-prepared', '0');
-      // this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '1');
+      this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '1');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-auto-rotate', '1');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-handle-resolution-change', '1');
       this.mIjkMediaPlayer.setOption('4', 'enable-accurate-seek', '1');
@@ -736,6 +749,12 @@ export struct VideoPlayerPage {
     this.moreProgressTimerId = setInterval(() => {
       this.currentProgress = this.getCurrentPosition();
     }, 500);
+    this.initMoreSheetState();
+    this.updateTimeDisplay();
+    this.clearTimeTickTimer();
+    this.timeTickTimerId = setInterval(() => {
+      this.updateTimeDisplay();
+    }, 60000);
   }
 
   clearMoreProgressTimer(): void {
@@ -743,6 +762,46 @@ export struct VideoPlayerPage {
       clearInterval(this.moreProgressTimerId);
       this.moreProgressTimerId = undefined;
     }
+  }
+
+  clearTimeTickTimer(): void {
+    if (this.timeTickTimerId !== undefined) {
+      clearInterval(this.timeTickTimerId);
+      this.timeTickTimerId = undefined;
+    }
+  }
+
+  private updateTimeDisplay(): void {
+    let now: Date = new Date();
+    let h: string = now.getHours().toString().padStart(2, '0');
+    let m: string = now.getMinutes().toString().padStart(2, '0');
+    this.currentTimeDisplay = h + ':' + m;
+  }
+
+  private initMoreSheetState(): void {
+    // 电池
+    try {
+      this.batteryLevel = batteryInfo.batterySOC;
+    } catch (_e) { this.batteryLevel = -1; }
+    // 亮度
+    try {
+      let uiContext = AppStorage.get<common.UIAbilityContext>('UiAbilityContext');
+      if (uiContext) {
+        window.getLastWindow(uiContext).then((win: window.Window) => {
+          let val: number = win.getWindowProperties().brightness;
+          if (val >= 0) {
+            this.currentBrightness = val;
+          }
+        });
+      }
+    } catch (_e) { this.currentBrightness = 0.5; }
+    // 音量
+    try {
+      let audioManager = harmoniousAudio.getAudioManager();
+      audioManager.getVolume(harmoniousAudio.AudioVolumeType.MEDIA, (_err: Error, vol: number) => {
+        this.currentVolume = vol / 15;
+      });
+    } catch (_e) { this.currentVolume = 0.8; }
   }
 
   // ===================================================================
@@ -843,40 +902,10 @@ export struct VideoPlayerPage {
         .fontSize(14).fontWeight(FontWeight.Bold).fontColor(Color.White)
         .margin({ top: 20, bottom: 10 })
 
-      List({ space: 20 }) {
-        // ── 倍速调整 ──
+      List({ space: 14 }) {
+        // ── 1. 进度调整 ──
         ListItem() {
-          Column({ space: 10 }) {
-            Text('播放倍速').fontSize(15).fontColor('#CCCCCC').width('100%')
-            Flex({ wrap: FlexWrap.Wrap }) {
-              ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0], (speed: number) => {
-                Button(speed + 'x')
-                  .fontSize(12)
-                  .fontColor(speed === this.currentSpeed ? Color.White : '#CCCCCC')
-                  .backgroundColor(
-                    speed === this.currentSpeed ? '#FF69B4' : '#333333'
-                  )
-                  .borderRadius(16)
-                  .height(32)
-                  .padding({ left: 14, right: 14 })
-                  .margin(1)
-                  .onClick(() => {
-                    this.currentSpeed = speed;
-                    this.setSpeed(speed);
-                  })
-              })
-            }
-              .width('100%')
-          }
-            .width('100%')
-            .padding(16)
-            .backgroundColor('#2C2C2E')
-            .borderRadius(12)
-        }
-
-        // ── 进度调整 ──
-        ListItem() {
-          Column({ space: 10 }) {
+          Column({ space: 8 }) {
             Text('进度调整').fontSize(15).fontColor('#CCCCCC').width('100%')
             Row() {
               Text(this.formatTime(this.currentProgress) + " / " + this.formatTime(this.totalDuration))
@@ -904,18 +933,149 @@ export struct VideoPlayerPage {
             .width('100%')
           }
           .width('100%')
-          .padding(4)
+          .padding({ top: 10, bottom: 10, left: 8, right: 8 })
           .backgroundColor('#2C2C2E')
           .borderRadius(12)
         }
 
-        ListItem(){
-          Column().height("14%")
+        // ── 2. 倍速调整 ──
+        ListItem() {
+          Column({ space: 8 }) {
+            Text('播放倍速').fontSize(15).fontColor('#CCCCCC').width('100%')
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0], (speed: number) => {
+                Button(speed + 'x')
+                  .fontSize(12)
+                  .fontColor(speed === this.currentSpeed ? Color.White : '#CCCCCC')
+                  .backgroundColor(
+                    speed === this.currentSpeed ? '#FF69B4' : '#333333'
+                  )
+                  .borderRadius(16)
+                  .height(32)
+                  .padding({ left: 14, right: 14 })
+                  .margin(1)
+                  .onClick(() => {
+                    this.currentSpeed = speed;
+                    this.setSpeed(speed);
+                  })
+              })
+            }
+              .width('100%')
+          }
+            .width('100%')
+            .padding({ top: 10, bottom: 10, left: 8, right: 8 })
+            .backgroundColor('#2C2C2E')
+            .borderRadius(12)
         }
-        // ── 后续功能可在此追加新的 ListItem ──
+
+        // ── 3. 信息显示（时间 + 电量） ──
+        ListItem() {
+          Row() {
+            Column({ space: 4 }) {
+              Text('当前时间').fontSize(11).fontColor('#888888')
+              Text(this.currentTimeDisplay)
+                .fontSize(22).fontWeight(FontWeight.Bold).fontColor(Color.White)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+
+            Column({ space: 4 }) {
+              Text('电池电量').fontSize(11).fontColor('#888888')
+              Row({ space: 6 }) {
+                Text(this.batteryLevel >= 0 ? this.batteryLevel + '%' : '--')
+                  .fontSize(22).fontWeight(FontWeight.Bold)
+                  .fontColor(this.batteryLevel > 20 ? Color.White : '#FF4444')
+                if (this.batteryLevel >= 0) {
+                  SymbolGlyph(this.getBatteryIcon(this.batteryLevel))
+                    .fontSize(18)
+                    .fontColor([this.batteryLevel > 20 ? '#34C759' : '#FF4444'])
+                }
+              }
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.End)
+          }
+          .width('100%')
+          .padding(16)
+          .backgroundColor('#2C2C2E')
+          .borderRadius(12)
+        }
+
+        // ── 4. 音量 + 亮度调节 ──
+        ListItem() {
+          Column({ space: 12 }) {
+            // 音量
+            Row({ space: 12 }) {
+              SymbolGlyph($r("sys.symbol.speaker_wave_2"))
+                .fontSize(18)
+                .fontColor(['#AAAAAA'])
+              Slider({
+                value: this.currentVolume * 100,
+                min: 0,
+                max: 100,
+                step: 1,
+                style: SliderStyle.OutSet
+              })
+              .trackColor('#555555')
+              .selectedColor('#FF69B4')
+              .blockColor(Color.White)
+              .layoutWeight(1)
+              .onChange((value: number) => {
+                this.currentVolume = value / 100;
+                try {
+                  let audioManager = harmoniousAudio.getAudioManager();
+                  audioManager.setVolume(
+                    harmoniousAudio.AudioVolumeType.MEDIA,
+                    Math.round(value / 100 * 15),
+                    (_err: Error) => {}
+                  );
+                } catch (_e) { /* ignore */ }
+              })
+              Text(Math.round(this.currentVolume * 100) + '%')
+                .fontSize(12).fontColor('#AAAAAA').width(36).textAlign(TextAlign.End)
+            }
+            .width('100%')
+
+            // 亮度
+            Row({ space: 12 }) {
+              SymbolGlyph($r("sys.symbol.sun_max"))
+                .fontSize(18)
+                .fontColor(['#AAAAAA'])
+              Slider({
+                value: this.currentBrightness * 100,
+                min: 0,
+                max: 100,
+                step: 1,
+                style: SliderStyle.OutSet
+              })
+              .trackColor('#555555')
+              .selectedColor('#FF69B4')
+              .blockColor(Color.White)
+              .layoutWeight(1)
+              .onChange((value: number) => {
+                this.currentBrightness = value / 100;
+                try {
+                  let uiContext = AppStorage.get<common.UIAbilityContext>('UiAbilityContext');
+                  if (uiContext) {
+                    window.getLastWindow(uiContext).then((win: window.Window) => {
+                      win.setWindowBrightness(this.currentBrightness);
+                    });
+                  }
+                } catch (_e) { /* ignore */ }
+              })
+              Text(Math.round(this.currentBrightness * 100) + '%')
+                .fontSize(12).fontColor('#AAAAAA').width(36).textAlign(TextAlign.End)
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .padding({ top: 10, bottom: 10, left: 8, right: 8 })
+          .backgroundColor('#2C2C2E')
+          .borderRadius(12)
+        }
       }
       .width('100%')
-      .height(320)
+      .height(420)
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .focusable(true)
@@ -925,6 +1085,21 @@ export struct VideoPlayerPage {
       .width('100%')
       .height('100%')
       .padding({ left: 16, right: 16, bottom: 24 })
+  }
+
+  private getBatteryIcon(level: number): Resource {
+    if (level <= 5) return $r('sys.symbol.battery_5percent');
+    if (level <= 10) return $r('sys.symbol.battery_10percent');
+    if (level <= 15) return $r('sys.symbol.battery_15percent');
+    if (level <= 20) return $r('sys.symbol.battery_20percent');
+    if (level <= 30) return $r('sys.symbol.battery_30percent');
+    if (level <= 40) return $r('sys.symbol.battery_40percent');
+    if (level <= 50) return $r('sys.symbol.battery_50percent');
+    if (level <= 60) return $r('sys.symbol.battery_60percent');
+    if (level <= 70) return $r('sys.symbol.battery_70percent');
+    if (level <= 80) return $r('sys.symbol.battery_80percent');
+    if (level <= 90) return $r('sys.symbol.battery_90percent');
+    return $r('sys.symbol.battery_100percent');
   }
 
   private formatTime(ms: number): string {

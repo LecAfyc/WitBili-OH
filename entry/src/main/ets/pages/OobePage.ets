@@ -167,6 +167,7 @@ export struct OobePage{
             SymbolGlyph($r("sys.symbol.person"))
               .fontSize('30vp')
               .padding({ top: 4, bottom: 4 })
+              .fontColor(['white'])
 
             Text('不想登录？直接右滑 >>>')
               .fontSize('14vp')

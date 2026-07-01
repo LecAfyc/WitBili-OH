@@ -16,6 +16,9 @@
       },
       {
         "name": "ohos.permission.VIBRATE"
+      },
+      {
+        "name": "ohos.permission.MODIFY_AUDIO_SETTINGS"
       }
     ],
     "abilities": [
