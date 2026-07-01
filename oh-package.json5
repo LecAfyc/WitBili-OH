@@ -2,8 +2,8 @@
   "modelVersion": "6.1.1",
   "description": "Please describe the basic information.",
   "dependencies": {
-    "@ohos/ijkplayer": "^2.0.8",
-    "@esky/barrage": "^1.0.6"
+    "@esky/barrage": "^1.0.6",
+    "@ohos/ijkplayer": "^2.0.8"
   },
   "devDependencies": {
     "@ohos/hypium": "1.0.25",

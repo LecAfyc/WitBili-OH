@@ -245,7 +245,6 @@ export struct CommentCardComponent {
                   .lineHeight(this.lh)
                   .textAlign(TextAlign.Start)
                   .onClick(() => {
-                    // TODO: 跳转用户主页，mid = s.userId
                     console.info('[CommentCard] mention tap: mid=' + s.userId);
                     this.pageStack.pushPath({name: "UserDetailPage", param: new UserCard("Loading...","",s.userId)})
                   })
@@ -345,10 +344,6 @@ export struct CommentCardComponent {
               .fontSize(11)
               .fontColor('#FB7299')
               .margin({ top: 4 })
-              .onClick(() => {
-                // TODO: 展开回复列表
-                console.info('[CommentCard] reply tap');
-              })
           }
         }
         .padding({ left: 12, right: 12, top: 4 })

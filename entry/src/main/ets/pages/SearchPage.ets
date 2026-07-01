@@ -32,7 +32,6 @@ export struct SearchPage {
     const keyword = this.searchText.trim();
     if (!keyword) return;
     this.saveSearchHistory(keyword);
-    // TODO: 跳转搜索结果页
     this.pageStack.pushPath({ name: 'SearchResultPage', param: keyword });
   }
 

@@ -200,7 +200,6 @@ export struct VideoPlayerPage {
             .animation({ duration: 500, curve: Curve.Rhythm })
             .translate({ x: this.curOffsetX, y: this.curOffsetY })
             .onAreaChange((_: Area, newValue: Area) => {
-              this.mIjkMediaPlayer
               this.componentWidth = newValue.width as number;
               this.componentHeight = newValue.height as number;
               this.calcBoundary();
@@ -617,7 +616,7 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer.native_setup();
 
       this.mIjkMediaPlayer.setOption('4', 'start-on-prepared', '0');
-      this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '1');
+      // this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '1');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-auto-rotate', '1');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-handle-resolution-change', '1');
       this.mIjkMediaPlayer.setOption('4', 'enable-accurate-seek', '1');
@@ -631,19 +630,6 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer.setOption('1', 'connect_timeout', '15000000');
       this.mIjkMediaPlayer.setOption('1', 'addrinfo_timeout', '15000000');
       this.mIjkMediaPlayer.setOption('1', 'dns_cache_timeout', '15000000');
-
-      let cookieStr: string = getCookieString();
-      let headers: Map<string, string> = new Map([
-        ['User-Agent', HEADERS['User-Agent']],
-        ['Referer', HEADERS['Referer']],
-        ['Cookie', cookieStr],
-        ['Origin', HEADERS['Origin']]
-      ]);
-      this.mIjkMediaPlayer.setDataSourceHeader(headers);
-      this.mIjkMediaPlayer.setOption('1', 'user-agent', HEADERS['User-Agent']);
-      this.mIjkMediaPlayer.setOption('1', 'referer', HEADERS['Referer']);
-      this.mIjkMediaPlayer.setOption('1', 'headers', 'Origin: https://www.bilibili.com\r\nCookie: ' + cookieStr + '\r\n');
-      this.mIjkMediaPlayer.setDataSource(this.videoUrl);
 
       this.mIjkMediaPlayer.setOnPreparedListener({
         onPrepared: () => {
@@ -667,6 +653,7 @@ export struct VideoPlayerPage {
         onCompletion: () => {
           this.isPlaying = false;
           this.stopDanmakuTimer();
+          this.pause();
         }
       } as OnCompletionListener);
 
@@ -693,11 +680,20 @@ export struct VideoPlayerPage {
         onBufferingUpdate: (_percent: number) => {}
       } as OnBufferingUpdateListener);
 
-      this.mIjkMediaPlayer.setOnCompletionListener({
-        onCompletion: () => {
-          this.pause();
-        }
-      } as OnCompletionListener)
+      this.mIjkMediaPlayer.setMessageListener();  //不加这行就会SIGSEGV！！！！别问我怎么知道的，Debug了一整天😇
+
+      let cookieStr: string = getCookieString();
+      let headers: Map<string, string> = new Map([
+        ['user_agent', HEADERS['User-Agent']],
+        ['origin', HEADERS['Origin']],
+        ['referer', HEADERS['Referer']],
+        ['cookies', cookieStr]
+      ]);
+      this.mIjkMediaPlayer.setDataSourceHeader(headers);
+      this.mIjkMediaPlayer.setOption('1', 'user-agent', HEADERS['User-Agent']);
+      this.mIjkMediaPlayer.setOption('1', 'referer',HEADERS['Referer']);
+      this.mIjkMediaPlayer.setOption('1', 'cookies', cookieStr);
+      this.mIjkMediaPlayer.setDataSource(this.videoUrl);
 
       this.mIjkMediaPlayer.prepareAsync();
     } catch (e) {
