@@ -195,7 +195,6 @@ export function genCookiePayload(): string {
 }
 
 function genPluginArrayJson(): string {
-  // ArkTS 禁止未类型化的复杂嵌套对象字面量，以 JSON 字符串替代
   let s: string = '['
     + '["360SoftMgrPlugin","360SoftMgrPlugin",[["application/360softmgrplugin","dll"]]],'
     + '["Alipay Security Control 3","Alipay Security Control",[["application/x-alisecctrl-plugin","*"]]],'

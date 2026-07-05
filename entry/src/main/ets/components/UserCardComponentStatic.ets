@@ -1,15 +1,14 @@
 /**
- * 用户卡片组件
+ * 用户卡片组件（无导航点击版）
  *
- * 当 card.isVip 为 true 时，用户名显示为 #FB7299 粉色；
- * 当 card.level 有值时，在用户名右侧显示对应等级的图标。
+ * 与 UserCardComponent 渲染完全一致，但不包含内部 onClick 导航逻辑。
+ * 用于会话列表等场景，点击行为由调用方自行控制。
  */
 
 import { UserCard } from '../model/UserCard';
 
 @Component
-export struct UserCardComponent {
-  @Consume('pageStack') pageStack: NavPathStack;
+export struct UserCardComponentStatic {
   // ===== 对外属性 =====
   @Prop card: UserCard = new UserCard();
   @Prop extraInfo: string = "";
@@ -84,9 +83,6 @@ export struct UserCardComponent {
     .backgroundColor(
       this.color !== null && this.color !== undefined && this.color !== '' ? this.color : 'rgba(22,22,22,0.8)')
     .borderRadius(10)
-    .onClick(() => {
-      console.info('[UserCard] 点击:', this.card.mid, this.card.name);
-      this.pageStack.pushPath({ name: 'UserDetailPage', param: this.card })
-    })
+    // 无内部 onClick，点击行为由调用方通过链式 .onClick() 控制
   }
 }

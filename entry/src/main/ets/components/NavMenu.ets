@@ -114,7 +114,11 @@ export struct NavMenu {
               this.navigateTo('Login');
             } else {
               console.info('[NavMenu] 已登录 ');
-              // TODO: push 私信
+              getMyAccountInfo().then((my: MyAccountInfo | null) => {
+                if (my !== null && my !== undefined) {
+                  this.navigateTo('MessageListPage')
+                }
+              })
             }
           })
         }

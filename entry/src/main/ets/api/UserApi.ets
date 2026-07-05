@@ -821,3 +821,76 @@ export async function getUserCreatedFavFolders(upMid: number, type?: number,
 
   return result;
 }
+
+// ===== 批量用户名片信息 =====
+
+/**
+ * 根据 uid 列表批量获取用户基本信息（用户名、头像、等级、VIP）
+ * 返回 data 字段为以 uid 字符串为 key 的对象
+ */
+export async function getBatchUserCards(uids: number[]): Promise<Map<number, UserCard>> {
+  let cardMap: Map<number, UserCard> = new Map();
+
+  if (uids.length === 0) {
+    return cardMap;
+  }
+
+  let uidsStr: string = uids[0].toString();
+  for (let i: number = 1; i < uids.length; i++) {
+    uidsStr += ',' + uids[i];
+  }
+
+  try {
+    let url: string = 'https://api.bilibili.com/x/polymer/pc-electron/v1/user/cards?uids=' + uidsStr;
+    let resp: ApiResponse = await httpGet(url);
+
+    if (resp.code !== 0 || !resp.data) {
+      console.warn('[UserApi] getBatchUserCards 失败: code=' + resp.code + ' msg=' + resp.message);
+      return cardMap;
+    }
+
+    let data: Record<string, Object> = resp.data as Record<string, Object>;
+
+    let keys: string[] = Object.keys(data);
+    for (let i: number = 0; i < keys.length; i++) {
+      let uidKey: string = keys[i];
+      let uid: number = parseInt(uidKey);
+      if (isNaN(uid) || uid <= 0) {
+        continue;
+      }
+
+      let cardObj: Record<string, Object> = data[uidKey] as Record<string, Object>;
+      if (!cardObj) {
+        continue;
+      }
+
+      let name: string = (cardObj['name'] as string) || '';
+      let face: string = (cardObj['face'] as string) || '';
+
+      // VIP 信息
+      let vip: Record<string, Object> | undefined = cardObj['vip'] as Record<string, Object> | undefined;
+      let isVip: boolean = false;
+      if (vip) {
+        let vipType: number = (vip['vipType'] as number) ?? (vip['type'] as number) ?? 0;
+        let vipStatus: number = (vip['vipStatus'] as number) ?? (vip['status'] as number) ?? 0;
+        isVip = vipType > 0 && vipStatus === 1;
+      }
+
+      // 等级信息
+      let level: string = '';
+      let levelInfo: Record<string, Object> | undefined = cardObj['level_info'] as Record<string, Object> | undefined;
+      if (levelInfo && levelInfo['current_level'] !== undefined) {
+        level = String(levelInfo['current_level']);
+      }
+
+      let userCard: UserCard = new UserCard(name, face, uid, isVip, level);
+      cardMap.set(uid, userCard);
+    }
+
+    console.info('[UserApi] getBatchUserCards 成功: ' + cardMap.size + ' 个用户');
+  } catch (e) {
+    console.error('[UserApi] getBatchUserCards 异常: ' + String(e));
+  }
+
+  return cardMap;
+}

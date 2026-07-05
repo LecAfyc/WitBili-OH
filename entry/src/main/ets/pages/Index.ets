@@ -11,6 +11,7 @@ import {
   getMyAccountInfo,
   MyAccountInfo
 } from '../api/LoginApi';
+import { common } from '@kit.AbilityKit';
 import { VideoDetailPage } from './VideoDetailPage';
 import { CommentPage } from './CommentPage';
 import { SearchPage } from './SearchPage';
@@ -21,6 +22,8 @@ import { DynamicDetailPage } from './DynamicDetailPage';
 import { ArticleDetailPage } from './ArticleDetailPage';
 import { VideoPlayerPage } from './VideoPlayerPage';
 import { VideoListPage } from './VideoListPage';
+import { MessageListPage } from './MessageListPage';
+import { ChatPage } from './ChatPage';
 
 PersistentStorage.persistProp('AccountData', 'null');
 PersistentStorage.persistProp('isAgreementAccepted', false);
@@ -80,29 +83,42 @@ struct Index {
       ArticleDetailPage();
     } else if (name === 'VideoPlayer') {
       VideoPlayerPage();
-    } else if (name ===
-      'VideoListPage') {
+    } else if (name === 'VideoListPage') {
       VideoListPage();
+    } else if (name === 'MessageListPage') {
+      MessageListPage();
+    } else if (name === 'ChatPage') {
+      ChatPage();
     }
+  }
+
+  @State initialized: boolean = false
+
+  aboutToAppear(): void {
+    this.pageStack.setInterception({
+      willShow: (from: NavDestinationContext | NavBar, to: NavDestinationContext | NavBar,
+        operation: NavigationOperation, isAnimated: boolean) => {
+        if (operation === NavigationOperation.POP && to === 'navBar') {
+          AppStorage.get<common.UIAbilityContext>("UiAbilityContext")?.terminateSelf().catch(() => {
+            this.pageStack.clear();
+          });
+        }
+      }
+    })
   }
 
   build() {
     Navigation(this.pageStack) {
-      Column() {
-        Text("这个页面是无用页面，如果你因为Bug来到了这里，点我可回到主页，右滑可以退出")
-          .onClick(() => {
-            this.pageStack.replacePath({ name: "Rcmd", param: "" });
-          })
-          .margin({ top: 60 })
-      }
-      .justifyContent(FlexAlign.Center)
-      .width('100%')
-      .height('100%')
+      Column()
     }
     .navDestination(this.pageMap)
     .onAppear(() => {
+      if (this.initialized) {
+        return;
+      }
+      this.initialized = true;
       if (!AppStorage.get<boolean>('isAgreementAccepted')) {
-        this.pageStack.replacePath({ name: "OOBE", param: "" });
+        this.pageStack.pushPath({ name: "OOBE", param: "" });
       } else {
         if (AppStorage.get<string>('AccountData') !== 'null') {
           restoreCookiesFromStorage();
@@ -123,10 +139,9 @@ struct Index {
             }
           });
         }
-        this.pageStack.replacePath({ name: "Rcmd", param: "" });
+        this.pageStack.pushPath({ name: "Rcmd", param: "" });
       }
       console.info("[Index] 加载已完成！")
-      console.info("[Index] 你居然想看log？等待你的是：中英混杂 | 神秘记号 | warn随便用 | 发泄情绪")
     })
   }
 }
