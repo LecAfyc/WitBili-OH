@@ -70,15 +70,15 @@ function mapFontSize(size: number): number {
 function calcSpeed(text: string): number {
   let len: number = text.length;
   if (len <= 5) {
-    return 2.2;
+    return 1.2;
   }
   if (len <= 10) {
-    return 2.8;
+    return 1.5;
   }
   if (len <= 20) {
-    return 3.2;
+    return 1.8;
   }
-  return 3.6;
+  return 2.0;
 }
 
 // ===== 弹幕类型过滤 =====

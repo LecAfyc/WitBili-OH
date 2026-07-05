@@ -12,7 +12,7 @@ import { LengthMetrics } from '@kit.ArkUI';
 @Component
 export struct CommentSection {
   @Consume('pageStack') pageStack: NavPathStack;
-  @Prop aid: number = 0;
+  @Prop @Watch('onAidChanged') aid: number = 0;
   @Prop type: number[] = [1];
   @State commentList: SingleComment[] = [];
   @State totalCount: number = 0;
@@ -31,7 +31,17 @@ export struct CommentSection {
     if (this.type === undefined || this.type === null) {
       this.type = [1];
     }
-    this.loadComments(true);
+    console.info('[CommentSection] aboutToAppear, aid=' + this.aid);
+    if (this.aid > 0) {
+      this.loadComments(true);
+    }
+  }
+
+  onAidChanged(): void {
+    console.info('[CommentSection] onAidChanged, aid=' + this.aid + ', firstLoad=' + this.firstLoad);
+    if (this.aid > 0 && this.firstLoad) {
+      this.loadComments(true);
+    }
   }
 
   // ===== 数据加载 =====

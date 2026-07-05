@@ -49,10 +49,12 @@ export struct VideoPlayerPage {
   @State curScale: number = 1.0;
   @State curOffsetX: number = 0;
   @State curOffsetY: number = 0;
-  @State componentWidth: number = 0;
-  @State componentHeight: number = 0;
+  @State containerWidth: number = 0;
+  @State containerHeight: number = 0;
+  @State private baseWidth: number = 0;
+  @State private baseHeight: number = 0;
   // ===== 弹幕 =====
-  @State barrageController: BarrageController = new BarrageController();
+  private barrageController: BarrageController = new BarrageController();
   @State barrageReady: boolean = false;
   // ===== UI 控制 =====
   @State showControls: boolean = false;
@@ -74,7 +76,7 @@ export struct VideoPlayerPage {
   private syncTimerId: number | undefined = undefined;
   private lastAudioSeekMs: number = 0;
   private readonly MIN_SCALE: number = 0.5;
-  private readonly MAX_SCALE: number = 5.0;
+  private readonly MAX_SCALE: number = 3.0;
   private maxOffsetX: number = 0;
   private minOffsetX: number = 0;
   private maxOffsetY: number = 0;
@@ -205,16 +207,9 @@ export struct VideoPlayerPage {
               .onDestroy(() => {
                 this.releasePlayer();
               })
-              .aspectRatio(this.videoWidth / this.videoHeight)
-              .constraintSize({ maxWidth: '100%', maxHeight: '100%' })
-              .scale({ x: this.curScale, y: this.curScale })
-              .animation({ duration: 500, curve: Curve.Rhythm })
+              .width(this.baseWidth * this.curScale)
+              .height(this.baseHeight * this.curScale)
               .translate({ x: this.curOffsetX, y: this.curOffsetY })
-              .onAreaChange((_: Area, newValue: Area) => {
-                this.componentWidth = newValue.width as number;
-                this.componentHeight = newValue.height as number;
-                this.calcBoundary();
-              })
 
             if (this.stateText) {
               Row() {
@@ -239,9 +234,9 @@ export struct VideoPlayerPage {
               BarrageView({
                 barrageController: this.barrageController,
                 option: {
-                  maxLine: 12,
-                  speed: 2.5,
-                  textAlpha: 0.85,
+                  maxLine: 6,
+                  speed: 1.5,
+                  textAlpha: 0.7,
                   isShowFPS: false
                 } as BarrageOption,
                 onCanvasReady: () => {
@@ -255,7 +250,14 @@ export struct VideoPlayerPage {
           }
         }
         .width('100%').height('100%')
+        .clip(true)
         .align(Alignment.Center)
+        .onAreaChange((_: Area, newValue: Area) => {
+          this.containerWidth = newValue.width as number;
+          this.containerHeight = newValue.height as number;
+          this.calcBaseSize();
+          this.calcBoundary();
+        })
         .gesture(
           GestureGroup(GestureMode.Exclusive,
             TapGesture({ count: 2 }).onAction(() => {
@@ -916,7 +918,17 @@ export struct VideoPlayerPage {
 
   private async loadDanmaku(): Promise<void> {
     try {
-      this.danmakuDataList = await getDanmakuItems(this.cid);
+      let all: Array<DanmakuData> = await getDanmakuItems(this.cid);
+      if (all.length > 1000) {
+        let step: number = all.length / 1000;
+        let sampled: Array<DanmakuData> = [];
+        for (let i: number = 0; i < all.length; i += step) {
+          sampled.push(all[Math.floor(i)]);
+        }
+        this.danmakuDataList = sampled;
+      } else {
+        this.danmakuDataList = all;
+      }
       this.danmakuIndex = 0;
     } catch (_e) {
       this.danmakuDataList = [];
@@ -927,7 +939,7 @@ export struct VideoPlayerPage {
     this.stopDanmakuTimer();
     this.danmakuIndex = 0;
     this.lastCheckedPosition = 0;
-    this.danmakuTimer = setInterval(() => this.syncDanmaku(), 200);
+    this.danmakuTimer = setInterval(() => this.syncDanmaku(), 500);
   }
 
   private stopDanmakuTimer(): void {
@@ -948,11 +960,14 @@ export struct VideoPlayerPage {
         this.danmakuIndex = 0;
       }
       this.lastCheckedPosition = curSec;
-      while (this.danmakuIndex < this.danmakuDataList.length) {
+      let added: number = 0;
+      let maxPerSync: number = 3;
+      while (this.danmakuIndex < this.danmakuDataList.length && added < maxPerSync) {
         let data = this.danmakuDataList[this.danmakuIndex];
-        if (data.time <= curSec + 0.3) {
+        if (data.time <= curSec + 0.5) {
           this.barrageController.addBarrage(createBarrageItem(data));
           this.danmakuIndex++;
+          added++;
         } else {
           break;
         }
@@ -973,7 +988,7 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer.native_setup();
 
       this.mIjkMediaPlayer.setOption('4', 'start-on-prepared', '0');
-      this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '1');
+      this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '0');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-auto-rotate', '1');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-handle-resolution-change', '1');
       this.mIjkMediaPlayer.setOption('4', 'enable-accurate-seek', '1');
@@ -1019,6 +1034,8 @@ export struct VideoPlayerPage {
           if (width > 0 && height > 0) {
             this.videoWidth = width;
             this.videoHeight = height;
+            this.calcBaseSize();
+            this.calcBoundary();
           }
         }
       } as OnVideoSizeChangedListener);
@@ -1121,12 +1138,27 @@ export struct VideoPlayerPage {
     }
   }
 
+  private calcBaseSize(): void {
+    if (this.containerWidth <= 0 || this.containerHeight <= 0) {
+      return;
+    }
+    let videoRatio: number = this.videoWidth / this.videoHeight;
+    let containerRatio: number = this.containerWidth / this.containerHeight;
+    if (videoRatio > containerRatio) {
+      this.baseWidth = this.containerWidth;
+      this.baseHeight = this.containerWidth / videoRatio;
+    } else {
+      this.baseHeight = this.containerHeight;
+      this.baseWidth = this.containerHeight * videoRatio;
+    }
+  }
+
   private calcBoundary(): void {
-    let sw = this.componentWidth * this.curScale;
-    let sh = this.componentHeight * this.curScale;
-    this.maxOffsetX = sw > this.componentWidth ? (sw - this.componentWidth) / 2 : 0;
+    let scaledW: number = this.baseWidth * this.curScale;
+    let scaledH: number = this.baseHeight * this.curScale;
+    this.maxOffsetX = scaledW > this.containerWidth ? (scaledW - this.containerWidth) / 2 : 0;
     this.minOffsetX = -this.maxOffsetX;
-    this.maxOffsetY = sh > this.componentHeight ? (sh - this.componentHeight) / 2 : 0;
+    this.maxOffsetY = scaledH > this.containerHeight ? (scaledH - this.containerHeight) / 2 : 0;
     this.minOffsetY = -this.maxOffsetY;
   }
 

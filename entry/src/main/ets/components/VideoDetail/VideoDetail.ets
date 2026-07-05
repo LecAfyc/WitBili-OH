@@ -1,5 +1,8 @@
 /**
- * 视频详情页
+ * 视频详情组件
+ *
+ * 传入 VideoCard（含 bvid/aid），组件内部通过 aboutToAppear() 自行调用 API 加载完整详情数据后渲染。
+ * 数据加载职责由组件自治，页面层仅负责路由参数提取和子组件编排。
  */
 
 import { LengthMetrics } from '@kit.ArkUI';
@@ -7,7 +10,8 @@ import { UserCard } from '../../model/UserCard';
 import { VideoCard } from '../../model/ContentCard';
 import { VideoPage } from '../../model/VideoPage';
 import { UserCardComponent } from '../UserCardComponent';
-import { likeVideo, addCoin, addVideoToFavFolders } from '../../api/VideoActionApi';
+import { getFullVideoDetail } from '../../api/VideoDetailApi';
+import { likeVideo, addCoin, addVideoToFavFolders, checkHasLiked, checkCoinCount, checkHasFavoured } from '../../api/VideoActionApi';
 import { getUserCreatedFavFolders } from '../../api/UserApi';
 import { FavFolder } from '../../model/FavFolder';
 import { addToView } from '../../api/HistoryApi';
@@ -22,27 +26,31 @@ interface MenuAction {
 
 @Component
 export struct VideoDetailArc {
-  // ===== 从父页面传入的数据 =====
-  @Link like: number; // 总点赞数（@Link 双向绑定，支持本地增减）
-  @Link coin: number; // 总投币数（同上）
-  @Link isLiked: boolean; // 当前用户是否已点赞
-  @Link coinsGiven: number; // 当前用户已投币数 0/1/2
-  @Link isFavoured: boolean; // 当前用户是否已收藏
-  @Prop pageParam: VideoCard = new VideoCard();
-  @Prop up: UserCard = new UserCard();
-  @Prop staff: Array<UserCard> = [];
-  @Prop staffRoles: Array<string> = [];
-  @Prop danmakus: number = 0;
-  @Prop time: number = 0;
-  @Prop duration: number = 0;
-  @Prop tags: Array<string> = [];
-  @Prop desc: string = '';
-  @Prop favorite: number = 0;
-  @Prop share: number = 0;
-  @Prop @Watch('onPagesChanged') pages: Array<VideoPage> = [new VideoPage(0)];
-  @Prop bv: string = "";
+  // ===== 从父页面传入的参数 =====
+  @Prop @Watch('onPageParamChanged') pageParam: VideoCard = new VideoCard();
   @Consume('pageStack') pageStack: NavPathStack;
-  // ===== 内部状态 =====
+  // ===== 组件内部状态（原 @Prop/@Link 改为 @State，由 aboutToAppear 加载） =====
+  @State up: UserCard = new UserCard();
+  @State staff: Array<UserCard> = [];
+  @State staffRoles: Array<string> = [];
+  @State danmakus: number = 0;
+  @State time: number = 0;
+  @State duration: number = 0;
+  @State tags: Array<string> = [];
+  @State desc: string = '';
+  @State like: number = 0;
+  @State coin: number = 0;
+  @State favorite: number = 0;
+  @State share: number = 0;
+  @State @Watch('onPagesChanged') pages: Array<VideoPage> = [];
+  @State isLiked: boolean = false;
+  @State isFavoured: boolean = false;
+  @State coinsGiven: number = 0;
+  @State bv: string = '';
+  // ===== 加载状态 =====
+  @State isLoading: boolean = true;
+  @State loadError: string = '';
+  // ===== 内部交互状态 =====
   @State descExpanded: boolean = false;
   @State currentPage: number = 1;
   @State showFavSheet: boolean = false;
@@ -54,9 +62,111 @@ export struct VideoDetailArc {
   @State qualities: VideoQuality[] = [];
   @State selectedQn: number = 80;
 
+  // ===== 生命周期：加载数据 =====
+  aboutToAppear(): void {
+    if (this.pageParam && (this.pageParam.bvid || this.pageParam.aid > 0)) {
+      this.loadVideoDetail();
+    }
+  }
+
+  onPageParamChanged(): void {
+    if (this.pageParam && (this.pageParam.bvid || this.pageParam.aid > 0) && this.isLoading) {
+      this.loadVideoDetail();
+    }
+  }
+
   onPagesChanged(): void {
     if (this.pageParam.aid > 0 && this.pages && this.pages.length > 0) {
       this.loadQualities();
+    }
+  }
+
+  // ===== 数据加载方法 =====
+
+  private async loadVideoDetail(): Promise<void> {
+    this.isLoading = true;
+    this.loadError = '';
+    try {
+      let bvid: string = this.pageParam.bvid;
+      let aid: number = this.pageParam.aid;
+      let result = await getFullVideoDetail(bvid, aid > 0 ? aid : undefined);
+      // pages 先赋值，保持与 @Watch('onPagesChanged') 的数据流向一致
+      this.pages = result.pages;
+      this.up = result.up;
+      this.staff = result.staff;
+      this.staffRoles = result.staffRoles;
+      this.danmakus = result.danmakus;
+      this.time = result.time;
+      this.duration = result.duration;
+      this.tags = result.tags;
+      this.desc = result.desc;
+      this.like = result.like;
+      this.coin = result.coin;
+      this.favorite = result.favorite;
+      this.share = result.share;
+      this.pageParam = result.pageParam;
+      console.info('[VideoDetail] 详情加载成功: ' + result.pageParam.title);
+
+      // 计算 bv
+      let aidNum: number = result.pageParam.aid || aid;
+      this.bv = result.pageParam.bvid !== '' ? result.pageParam.bvid : av2bv(aidNum);
+
+      // 异步查询点赞/投币状态
+      if (aidNum > 0) {
+        this.loadActionStatus(aidNum);
+      }
+
+      this.isLoading = false;
+    } catch (e) {
+      this.isLoading = false;
+      this.loadError = '视频详情加载失败: ' + String(e);
+      console.error('[VideoDetail] 详情加载失败:', String(e));
+    }
+  }
+
+  private async loadActionStatus(aid: number): Promise<void> {
+    try {
+      let results = await Promise.all([
+        checkHasLiked(aid),
+        checkCoinCount(aid),
+        checkHasFavoured(aid)
+      ]);
+      this.isLiked = results[0];
+      this.coinsGiven = results[1];
+      this.isFavoured = results[2];
+      console.info('[VideoDetail] 点赞状态:', results[0], '投币数:', results[1], '收藏状态:', results[2]);
+    } catch (e) {
+      console.warn('[VideoDetail] 状态查询失败:', String(e));
+    }
+  }
+
+  // ===== 加载状态 UI =====
+
+  @Builder
+  loadingView() {
+    ListItem() {
+      Column() {
+        LoadingProgress().width(36).height(36)
+        Text('加载中...').fontSize(13).fontColor('#888888').margin({ top: 8 })
+      }
+      .width('92%').alignItems(HorizontalAlign.Center).justifyContent(FlexAlign.Center)
+      .padding({ top: 60, bottom: 60 })
+    }
+  }
+
+  @Builder
+  errorView() {
+    ListItem() {
+      Column() {
+        Text('⚠').fontSize(40).fontColor('#888888')
+        Text(this.loadError).fontSize(13).fontColor('#888888').margin({ top: 8 })
+        Text('点击重试').fontSize(12).fontColor('#FB7299').margin({ top: 12 })
+          .onClick(() => {
+            this.loadVideoDetail();
+          })
+      }
+      .width('92%').alignItems(HorizontalAlign.Center).justifyContent(FlexAlign.Center)
+      .padding({ top: 60, bottom: 60 })
     }
   }
 
@@ -83,8 +193,6 @@ export struct VideoDetailArc {
           Column({ space: 6 }) {
             ForEach(this.favFolders, (folder: FavFolder) => {
               Row() {
-                // 选中状态指示圈
-                // Text(this.selectedFolderMlids.indexOf(folder.mlid) >= 0 ? '󰇚' : '󰁵')
                 SymbolGlyph(
                   this.selectedFolderMlids.indexOf(folder.mlid) >= 0 ? $r("sys.symbol.checkmark_square_fill") :
                     $r("sys.symbol.square"))
@@ -200,380 +308,374 @@ export struct VideoDetailArc {
   // ===== 构建 =====
   build() {
     List({ space: 14 }) {
-      // ── 1. 返回按钮 ──
-      /*
-      ListItem() {
-        Row() {
-          Text('󰃚').fontSize(18).fontColor('#FB7299').width(24).textAlign(TextAlign.Center)
-          Text('返回').fontSize(15).fontColor('#EEEEEE').margin({ left: 6 })
+      // ── 加载状态 ──
+      if (this.isLoading) {
+        this.loadingView()
+      } else if (this.loadError) {
+        this.errorView()
+      } else {
+        // ── 1. 占位 ──
+        ListItem() {
+          Column().height('14%')
         }
-        .width('90%')
-        .padding({ left: 12, top: 8, bottom: 8 })
-        .borderRadius(10)
-        .backgroundColor('rgba(22,22,22,0.6)')
-        .onClick(() => { if (this.pageStack) this.pageStack.pop(); })
-      }
-      * */
-      ListItem() {
-        Column().height('14%')
-      }
 
-      // ── 2. 封面大图 ──
-      ListItem() {
-        Column() {
-          Image(this.pageParam.cover)
-            .width('100%')
-            .aspectRatio(16 / 9)
-            .borderRadius(12)
-            .objectFit(ImageFit.Cover)
-            .alt($r('app.media.placeholder'))
-            .onClick(() => {
-              this.pageStack.pushPath({ name: 'ImageViewer', param: this.pageParam.cover });
-            })
-        }
-        .width('92%')
-      }
-
-      // ── 3. 标题 ──
-      ListItem() {
-        Text(this.pageParam.title)
-          .fontSize(16)
-          .fontColor('#FFFFFF')
-          .fontWeight(FontWeight.Bold)
-          .lineHeight(22)
+        // ── 2. 封面大图 ──
+        ListItem() {
+          Column() {
+            Image(this.pageParam.cover)
+              .width('100%')
+              .aspectRatio(16 / 9)
+              .borderRadius(12)
+              .objectFit(ImageFit.Cover)
+              .alt($r('app.media.placeholder'))
+              .onClick(() => {
+                this.pageStack.pushPath({ name: 'ImageViewer', param: this.pageParam.cover });
+              })
+          }
           .width('92%')
-          .textAlign(TextAlign.Start)
-      }
-
-      // ── 4. 分P选择器 ──
-      if (this.pages.length > 1) {
-        ListItem() {
-          Column() {
-            Text('分P选择')
-              .fontSize(11)
-              .fontColor('#888888')
-              .width('92%')
-              .textAlign(TextAlign.Start)
-              .margin({ bottom: 6 })
-            Scroll() {
-              Row() {
-                ForEach(this.pages, (page: VideoPage, index: number) => {
-                  this.pageRadioItem(page, index)
-                }, (page: VideoPage) => String(page.cid))
-              }
-              .alignItems(VerticalAlign.Center)
-            }
-            .scrollable(ScrollDirection.Horizontal)
-            .scrollBar(BarState.Off)
-            .width('100%')
-          }
-          .width('92%').padding(6).backgroundColor('rgba(22,22,22,0.4)').borderRadius(10)
         }
-      }
 
-      // ── 5. 播放按钮 ──
-      ListItem() {
-        Row() {
-          SymbolGlyph($r("sys.symbol.play_round_rectangle_fill"))
-            .fontSize(18)
-            .fontColor(['#FFFFFF'])
-            .margin({ right: 6 })
-          Text('播放视频').fontSize(17).fontColor('#FFFFFF').fontWeight(FontWeight.Bold)
-        }
-        .width('88%')
-        .height(48)
-        .backgroundColor('#FB7299')
-        .borderRadius(24)
-        .justifyContent(FlexAlign.Center)
-        .onClick(() => {
-          let cid: number = this.getCurrentCid();
-          if (cid <= 0 && this.pages.length > 0) {
-            cid = this.pages[0].cid;
-          }
-          console.info('[VideoDetail] 跳转播放页, aid:', this.pageParam.aid,
-            'cid:', cid, 'qn:', this.selectedQn);
-          let playParam: Record<string, Object> = {
-            'videoCard': this.pageParam,
-            'cid': cid,
-            'qn': this.selectedQn
-          };
-          this.pageStack.pushPath({
-            name: 'VideoPlayer',
-            param: playParam
-          });
-        })
-      }
-
-      // ── 5b. 清晰度选择（加载完成后显示） ──
-      if (this.qualities.length > 0) {
+        // ── 3. 标题 ──
         ListItem() {
-          Column() {
-            Row() {
-              Text('画质').fontSize(11).fontColor('#888888').margin({ right: 8 })
+          Text(this.pageParam.title)
+            .fontSize(16)
+            .fontColor('#FFFFFF')
+            .fontWeight(FontWeight.Bold)
+            .lineHeight(22)
+            .width('92%')
+            .textAlign(TextAlign.Start)
+        }
+
+        // ── 4. 分P选择器 ──
+        if (this.pages.length > 1) {
+          ListItem() {
+            Column() {
+              Text('分P选择')
+                .fontSize(11)
+                .fontColor('#888888')
+                .width('92%')
+                .textAlign(TextAlign.Start)
+                .margin({ bottom: 6 })
               Scroll() {
-                Row({ space: 6 }) {
-                  ForEach(this.qualities, (item: VideoQuality) => {
-                    if (item.qn !== 120 && item.qn !== 116) {
-                      Text(item.name)
-                        .fontSize(12)
-                        .fontColor(item.qn === this.selectedQn ? '#FB7299' : '#CCCCCC')
-                        .fontWeight(item.qn === this.selectedQn ? FontWeight.Bold : FontWeight.Regular)
-                        .padding({
-                          left: 10,
-                          right: 10,
-                          top: 4,
-                          bottom: 4
-                        })
-                        .borderRadius(12)
-                        .backgroundColor(item.qn === this.selectedQn
-                          ? 'rgba(251,114,153,0.15)'
-                          : 'rgba(66,66,66,0.4)')
-                        .onClick(() => {
-                          this.selectedQn = item.qn;
-                          console.info('[VideoDetail] 切换清晰度:', item.name, 'qn=' + item.qn);
-                        })
-                    }
-                  }, (item: VideoQuality) => String(item.qn))
+                Row() {
+                  ForEach(this.pages, (page: VideoPage, index: number) => {
+                    this.pageRadioItem(page, index)
+                  }, (page: VideoPage) => String(page.cid))
                 }
+                .alignItems(VerticalAlign.Center)
               }
               .scrollable(ScrollDirection.Horizontal)
               .scrollBar(BarState.Off)
-              .layoutWeight(1)
+              .width('100%')
             }
-            .width('100%')
-            .padding({ top: 6, bottom: 2 })
+            .width('92%').padding(6).backgroundColor('rgba(22,22,22,0.4)').borderRadius(10)
+          }
+        }
+
+        // ── 5. 播放按钮 ──
+        ListItem() {
+          Row() {
+            SymbolGlyph($r("sys.symbol.play_round_rectangle_fill"))
+              .fontSize(18)
+              .fontColor(['#FFFFFF'])
+              .margin({ right: 6 })
+            Text('播放视频').fontSize(17).fontColor('#FFFFFF').fontWeight(FontWeight.Bold)
           }
           .width('88%')
-          .alignItems(HorizontalAlign.Start)
-        }
-      }
-
-      // ── 6. 统计信息 ──
-      ListItem() {
-        Column() {
-          Row() {
-            Row() {
-              SymbolGlyph($r("sys.symbol.play_circle_fill")).fontSize(12).fontColor(['#999999'])
-              Text(formatCount(Number(this.pageParam.formatedView))).fontSize(12)
-                .fontColor('#CCCCCC').margin({ left: 3 })
-            }.margin({ right: 16 })
-
-            Row() {
-              SymbolGlyph($r("sys.symbol.sort")).fontSize(12).fontColor(['#999999'])
-              Text(formatCount(this.danmakus)).fontSize(12)
-                .fontColor('#CCCCCC').margin({ left: 3 })
+          .height(48)
+          .backgroundColor('#FB7299')
+          .borderRadius(24)
+          .justifyContent(FlexAlign.Center)
+          .onClick(() => {
+            let cid: number = this.getCurrentCid();
+            if (cid <= 0 && this.pages.length > 0) {
+              cid = this.pages[0].cid;
             }
-          }.width('100%').margin({ bottom: 6 })
-
-          Row() {
-            Row() {
-              SymbolGlyph($r("sys.symbol.clock")).fontSize(12).fontColor(['#999999'])
-              Text(this.formatPublishTime(this.time)).fontSize(12)
-                .fontColor('#CCCCCC').margin({ left: 3 })
-            }.margin({ right: 16 })
-
-            Row() {
-              SymbolGlyph($r("sys.symbol.arrow_counterclockwise_clock")).fontSize(12).fontColor(['#999999'])
-              Text(this.formatDuration(this.duration)).fontSize(12)
-                .fontColor('#CCCCCC').margin({ left: 3 })
-            }
-          }.width('100%').margin({ bottom: 6 })
+            console.info('[VideoDetail] 跳转播放页, aid:', this.pageParam.aid,
+              'cid:', cid, 'qn:', this.selectedQn);
+            let playParam: Record<string, Object> = {
+              'videoCard': this.pageParam,
+              'cid': cid,
+              'qn': this.selectedQn
+            };
+            this.pageStack.pushPath({
+              name: 'VideoPlayer',
+              param: playParam
+            });
+          })
         }
-        .width('92%').alignItems(HorizontalAlign.Start)
-      }
 
-      // ── 7. 视频标签 ──
-      ListItem() {
-        Scroll() {
-          Text() {
-            ForEach(this.tags, (tag: string, index: number) => {
-              Span(tag).fontSize(13).fontColor('#FB7299')
-                .padding({
-                  left: 4,
-                  right: 4,
-                  top: 2,
-                  bottom: 2
-                })
-                .onClick(() => {
-                  console.info('[VideoDetail] 点击标签:', tag);
-                  this.pageStack.pushPath({ name: 'SearchResultPage', param: tag });
-                })
-              if (index < this.tags.length - 1) {
-                Span(' / ').fontSize(13).fontColor('#555555')
+        // ── 5b. 清晰度选择（加载完成后显示） ──
+        if (this.qualities.length > 0) {
+          ListItem() {
+            Column() {
+              Row() {
+                Text('画质').fontSize(11).fontColor('#888888').margin({ right: 8 })
+                Scroll() {
+                  Row({ space: 6 }) {
+                    ForEach(this.qualities, (item: VideoQuality) => {
+                      if (item.qn !== 120 && item.qn !== 116) {
+                        Text(item.name)
+                          .fontSize(12)
+                          .fontColor(item.qn === this.selectedQn ? '#FB7299' : '#CCCCCC')
+                          .fontWeight(item.qn === this.selectedQn ? FontWeight.Bold : FontWeight.Regular)
+                          .padding({
+                            left: 10,
+                            right: 10,
+                            top: 4,
+                            bottom: 4
+                          })
+                          .borderRadius(12)
+                          .backgroundColor(item.qn === this.selectedQn
+                            ? 'rgba(251,114,153,0.15)'
+                            : 'rgba(66,66,66,0.4)')
+                          .onClick(() => {
+                            this.selectedQn = item.qn;
+                            console.info('[VideoDetail] 切换清晰度:', item.name, 'qn=' + item.qn);
+                          })
+                      }
+                    }, (item: VideoQuality) => String(item.qn))
+                  }
+                }
+                .scrollable(ScrollDirection.Horizontal)
+                .scrollBar(BarState.Off)
+                .layoutWeight(1)
               }
-            }, (tag: string) => tag)
+              .width('100%')
+              .padding({ top: 6, bottom: 2 })
+            }
+            .width('88%')
+            .alignItems(HorizontalAlign.Start)
           }
-          .width('100%').textAlign(TextAlign.Center)
         }
-        .width('92%')
-        .scrollable(ScrollDirection.Horizontal)
-        .scrollBar(BarState.Off)
-      }
 
-      // ── 8. 简介 ──
-      ListItem() {
-        Column() {
-          Text(this.desc)
-            .fontSize(13)
-            .fontColor('#BBBBBB')
-            .lineHeight(18)
-            .maxLines(this.descExpanded ? 100 : 1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
-          Text(this.descExpanded ? '↑ 收起' : '↓ 展开').fontSize(11)
-            .fontColor('#FB7299').margin({ top: 4 })
-        }
-        .width('92%')
-        .onClick(() => {
-          this.descExpanded = !this.descExpanded;
-        })
-      }
-
-      // ── 9. UP主卡片 ──
-      if (this.staff.length <= 0) {
-        ListItem() {
-          UserCardComponent({ card: this.up, extraInfo: 'UP主·投稿视频', baseFontSize: 14 }).width('92%')
-        }
-      }
-
-      // ── 10. 合作成员列表 ──
-      if (this.staff.length > 0) {
+        // ── 6. 统计信息 ──
         ListItem() {
           Column() {
-            Text('创作者团队')
-              .fontSize(11)
-              .fontColor('#888888')
-              .width('92%')
-              .textAlign(TextAlign.Start)
-              .margin({ bottom: 4, top: 2 })
+            Row() {
+              Row() {
+                SymbolGlyph($r("sys.symbol.play_circle_fill")).fontSize(12).fontColor(['#999999'])
+                Text(formatCount(Number(this.pageParam.formatedView))).fontSize(12)
+                  .fontColor('#CCCCCC').margin({ left: 3 })
+              }.margin({ right: 16 })
+
+              Row() {
+                SymbolGlyph($r("sys.symbol.sort")).fontSize(12).fontColor(['#999999'])
+                Text(formatCount(this.danmakus)).fontSize(12)
+                  .fontColor('#CCCCCC').margin({ left: 3 })
+              }
+            }.width('100%').margin({ bottom: 6 })
+
+            Row() {
+              Row() {
+                SymbolGlyph($r("sys.symbol.clock")).fontSize(12).fontColor(['#999999'])
+                Text(this.formatPublishTime(this.time)).fontSize(12)
+                  .fontColor('#CCCCCC').margin({ left: 3 })
+              }.margin({ right: 16 })
+
+              Row() {
+                SymbolGlyph($r("sys.symbol.arrow_counterclockwise_clock")).fontSize(12).fontColor(['#999999'])
+                Text(this.formatDuration(this.duration)).fontSize(12)
+                  .fontColor('#CCCCCC').margin({ left: 3 })
+              }
+            }.width('100%').margin({ bottom: 6 })
+          }
+          .width('92%').alignItems(HorizontalAlign.Start)
+        }
+
+        // ── 7. 视频标签 ──
+        ListItem() {
+          Scroll() {
+            Text() {
+              ForEach(this.tags, (tag: string, index: number) => {
+                Span(tag).fontSize(13).fontColor('#FB7299')
+                  .padding({
+                    left: 4,
+                    right: 4,
+                    top: 2,
+                    bottom: 2
+                  })
+                  .onClick(() => {
+                    console.info('[VideoDetail] 点击标签:', tag);
+                    this.pageStack.pushPath({ name: 'SearchResultPage', param: tag });
+                  })
+                if (index < this.tags.length - 1) {
+                  Span(' / ').fontSize(13).fontColor('#555555')
+                }
+              }, (tag: string) => tag)
+            }
+            .width('100%').textAlign(TextAlign.Center)
           }
           .width('92%')
+          .scrollable(ScrollDirection.Horizontal)
+          .scrollBar(BarState.Off)
         }
 
-        ForEach(this.staff, (member: UserCard, index: number) => {
+        // ── 8. 简介 ──
+        ListItem() {
+          Column() {
+            Text(this.desc)
+              .fontSize(13)
+              .fontColor('#BBBBBB')
+              .lineHeight(18)
+              .maxLines(this.descExpanded ? 100 : 1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
+            Text(this.descExpanded ? '↑ 收起' : '↓ 展开').fontSize(11)
+              .fontColor('#FB7299').margin({ top: 4 })
+          }
+          .width('92%')
+          .onClick(() => {
+            this.descExpanded = !this.descExpanded;
+          })
+        }
+
+        // ── 9. UP主卡片 ──
+        if (this.staff.length <= 0) {
           ListItem() {
-            UserCardComponent({
-              card: member,
-              extraInfo: index < this.staffRoles.length ? this.staffRoles[index] : '合作者',
-              baseFontSize: 14
-            }).width('92%')
+            UserCardComponent({ card: this.up, extraInfo: 'UP主·投稿视频', baseFontSize: 14 }).width('92%')
           }
-        }, (member: UserCard) => String(member.mid))
-      }
-
-      // ── 11. 点赞 / 投币 / 收藏 ──
-      ListItem() {
-        Row() {
-          // 点赞
-          Column() {
-            SymbolGlyph($r("sys.symbol.hand_thumbsup_fill"))
-              .fontSize(28)
-              .fontColor([this.isLiked ? '#FB7299' : '#BBBBBB'])
-
-            Text(formatCount(this.like))
-              .fontSize(11)
-              .fontColor(this.isLiked ? '#FB7299' : '#999999')
-              .margin({ top: 3 })
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Center)
-          .onClick(() => {
-            this.onLikeClick();
-          })
-
-          // 投币
-          Column() {
-            SymbolGlyph($r("sys.symbol.smallcircle_filled_circle"))
-              .fontSize(28)
-              .fontColor([this.coinsGiven > 0 ? '#FB7299' : '#BBBBBB'])
-
-            Text(formatCount(this.coin))
-              .fontSize(11)
-              .fontColor(this.coinsGiven > 0 ? '#FB7299' : '#999999')
-              .margin({ top: 3 })
-
-            // 投币进度指示（小点，空心→实心）
-            Row() {
-              Circle().width(5).height(5)
-                .fill(this.coinsGiven >= 1 ? '#FB7299' : '#555555')
-                .margin({ right: 3 })
-              Circle().width(5).height(5)
-                .fill(this.coinsGiven >= 2 ? '#FB7299' : '#555555')
-            }
-            .margin({ top: 2 })
-            .justifyContent(FlexAlign.Center)
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Center)
-          .onClick(() => {
-            this.onCoinClick();
-          })
-
-          // 收藏
-          Column() {
-            SymbolGlyph($r("sys.symbol.star"))
-              .fontSize(28)
-              .fontColor([this.isFavoured ? '#FB7299' : '#BBBBBB'])
-
-            Text(formatCount(this.favorite))
-              .fontSize(11)
-              .fontColor(this.isFavoured ? '#FB7299' : '#999999')
-              .margin({ top: 3 })
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Center)
-          .onClick(() => {
-            this.onFavClick();
-          })
-          .bindSheet($$this.showFavSheet, this.favFolderSheetBuilder(), { height: SheetSize.LARGE })
         }
-        .width('92%')
-        .padding({ top: 12, bottom: 12 })
-        .backgroundColor('rgba(22,22,22,0.5)')
-        .borderRadius(12)
-      }
 
-      // ── 12. 更多按钮 ──
-      ListItem() {
-        Row() {
-          Text('∷ 更多').fontSize(15).fontColor('#999999')
+        // ── 10. 合作成员列表 ──
+        if (this.staff.length > 0) {
+          ListItem() {
+            Column() {
+              Text('创作者团队')
+                .fontSize(11)
+                .fontColor('#888888')
+                .width('92%')
+                .textAlign(TextAlign.Start)
+                .margin({ bottom: 4, top: 2 })
+            }
+            .width('92%')
+          }
+
+          ForEach(this.staff, (member: UserCard, index: number) => {
+            ListItem() {
+              UserCardComponent({
+                card: member,
+                extraInfo: index < this.staffRoles.length ? this.staffRoles[index] : '合作者',
+                baseFontSize: 14
+              }).width('92%')
+            }
+          }, (member: UserCard) => String(member.mid))
         }
-        .width('88%')
-        .height(42)
-        .backgroundColor('rgba(22,22,22,0.6)')
-        .borderRadius(21)
-        .justifyContent(FlexAlign.Center)
-        .bindMenu(new Array<MenuAction>(
-          {
-            value: '缓存', action: () => {
-            console.info('[More] 缓存');
-          }
-          },
-          {
-            value: '流转', action: () => {
-            this.pageStack.pushPath({ name: 'QrCode', param: 'https://www.bilibili.com/video/' + this.bv });
-          }
-          },
-          {
-            value: '稍后再看', action: async () => {
-            let aid: number = this.pageParam.aid;
-            if (aid <= 0) {
-              this.toast('视频ID无效');
-              return;
-            }
-            let res = await addToView(aid);
-            if (res.success) {
-              this.toast('已加入稍后再看');
-            } else {
-              this.toast(res.message || '加入失败');
-            }
-          }
-          }
-        ))
-      }
 
-      ListItem() {
-        Column().height('14%')
+        // ── 11. 点赞 / 投币 / 收藏 ──
+        ListItem() {
+          Row() {
+            // 点赞
+            Column() {
+              SymbolGlyph($r("sys.symbol.hand_thumbsup_fill"))
+                .fontSize(28)
+                .fontColor([this.isLiked ? '#FB7299' : '#BBBBBB'])
+
+              Text(formatCount(this.like))
+                .fontSize(11)
+                .fontColor(this.isLiked ? '#FB7299' : '#999999')
+                .margin({ top: 3 })
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Center)
+            .onClick(() => {
+              this.onLikeClick();
+            })
+
+            // 投币
+            Column() {
+              SymbolGlyph($r("sys.symbol.smallcircle_filled_circle"))
+                .fontSize(28)
+                .fontColor([this.coinsGiven > 0 ? '#FB7299' : '#BBBBBB'])
+
+              Text(formatCount(this.coin))
+                .fontSize(11)
+                .fontColor(this.coinsGiven > 0 ? '#FB7299' : '#999999')
+                .margin({ top: 3 })
+
+              // 投币进度指示（小点，空心→实心）
+              Row() {
+                Circle().width(5).height(5)
+                  .fill(this.coinsGiven >= 1 ? '#FB7299' : '#555555')
+                  .margin({ right: 3 })
+                Circle().width(5).height(5)
+                  .fill(this.coinsGiven >= 2 ? '#FB7299' : '#555555')
+              }
+              .margin({ top: 2 })
+              .justifyContent(FlexAlign.Center)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Center)
+            .onClick(() => {
+              this.onCoinClick();
+            })
+
+            // 收藏
+            Column() {
+              SymbolGlyph($r("sys.symbol.star"))
+                .fontSize(28)
+                .fontColor([this.isFavoured ? '#FB7299' : '#BBBBBB'])
+
+              Text(formatCount(this.favorite))
+                .fontSize(11)
+                .fontColor(this.isFavoured ? '#FB7299' : '#999999')
+                .margin({ top: 3 })
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Center)
+            .onClick(() => {
+              this.onFavClick();
+            })
+            .bindSheet($$this.showFavSheet, this.favFolderSheetBuilder(), { height: SheetSize.LARGE })
+          }
+          .width('92%')
+          .padding({ top: 12, bottom: 12 })
+          .backgroundColor('rgba(22,22,22,0.5)')
+          .borderRadius(12)
+        }
+
+        // ── 12. 更多按钮 ──
+        ListItem() {
+          Row() {
+            Text('∷ 更多').fontSize(15).fontColor('#999999')
+          }
+          .width('88%')
+          .height(42)
+          .backgroundColor('rgba(22,22,22,0.6)')
+          .borderRadius(21)
+          .justifyContent(FlexAlign.Center)
+          .bindMenu(new Array<MenuAction>(
+            {
+              value: '缓存', action: () => {
+              console.info('[More] 缓存');
+            }
+            },
+            {
+              value: '流转', action: () => {
+              this.pageStack.pushPath({ name: 'QrCode', param: 'https://www.bilibili.com/video/' + this.bv });
+            }
+            },
+            {
+              value: '稍后再看', action: async () => {
+              let aid: number = this.pageParam.aid;
+              if (aid <= 0) {
+                this.toast('视频ID无效');
+                return;
+              }
+              let res = await addToView(aid);
+              if (res.success) {
+                this.toast('已加入稍后再看');
+              } else {
+                this.toast(res.message || '加入失败');
+              }
+            }
+            }
+          ))
+        }
+
+        ListItem() {
+          Column().height('14%')
+        }
       }
     }
     .width('100%')
@@ -606,7 +708,7 @@ export struct VideoDetailArc {
   private getCurrentCid(): number {
     if (!this.pages || !Array.isArray(this.pages) || this.pages.length === 0) {
       console.warn('[VideoDetail] pages 无效，返回默认 cid=0');
-      return 0; // 或返回你预设的兜底 cid
+      return 0;
     }
     for (let i: number = 0; i < this.pages.length; i++) {
       if (this.pages[i].page === this.currentPage) {
@@ -620,12 +722,6 @@ export struct VideoDetailArc {
   private async loadQualities(): Promise<void> {
     let aid: number = this.pageParam.aid;
     let cid: number = this.getCurrentCid();
-    /*
-    if (cid <= 0) {
-      console.warn('[VideoDetail] cid 不可用，跳过清晰度加载');
-      return;
-    }
-    * */
     let bvid: string = this.pageParam.bvid;
     if (!bvid) {
       bvid = av2bv(aid);
