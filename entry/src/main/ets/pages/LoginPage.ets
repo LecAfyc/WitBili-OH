@@ -13,8 +13,7 @@ import {
   saveLoginCookies,
   restoreCookiesFromStorage,
   requestSSOs,
-  PollResult,
-  checkCookieRefreshIfNeeded
+  PollResult
 } from '../api/LoginApi';
 
 const POLL_INTERVAL: number = 2000;
@@ -243,6 +242,7 @@ export struct LoginPage {
 
   private exitLogin(): void {
     this.stopPolling();
-    this.pageStack.pop();
+    if (this.pageStack.size() <= 1) this.pageStack.replacePath({name: "Rcmd", param: ""});
+    else this.pageStack.pop();
   }
 }
