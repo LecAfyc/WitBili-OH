@@ -267,7 +267,6 @@ export struct VideoDetailArc {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#1C1C1E')
     .alignItems(HorizontalAlign.Center)
   }
 
@@ -626,7 +625,10 @@ export struct VideoDetailArc {
             .onClick(() => {
               this.onFavClick();
             })
-            .bindSheet($$this.showFavSheet, this.favFolderSheetBuilder(), { height: SheetSize.LARGE })
+            .bindSheet($$this.showFavSheet, this.favFolderSheetBuilder(), {
+              height: SheetSize.LARGE ,
+              backgroundColor: 'rgba(28,28,30,0.45)',
+              blurStyle: BlurStyle.BACKGROUND_THIN})
           }
           .width('92%')
           .padding({ top: 12, bottom: 12 })

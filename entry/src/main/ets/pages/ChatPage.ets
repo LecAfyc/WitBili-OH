@@ -48,6 +48,7 @@ export struct ChatPage {
   @State myUid: number = 0;
   @State inputText: string = '';
   @State isSending: boolean = false;
+  @State isSheetShow: boolean = false;
 
   // 消息列表引用（用于滚动到底部）
   private scroller: Scroller = new Scroller();
@@ -66,14 +67,33 @@ export struct ChatPage {
     NavDestination() {
       Column() {
         this.MessageList()
-        this.InputArea()
+        Button('发消息')
+          .fontSize(12)
+          .fontColor('#FFFFFF')
+          .backgroundColor('#FB7299')
+          .borderRadius(20)
+          .height(30)
+          .width(80)
+          .margin({ bottom: 8 })
+          .onClick(() => {
+            this.isSheetShow = true;
+          })
+          .bindSheet($$this.isSheetShow, this.SheetBuilder(), {
+            height: 280,
+            dragBar: true,
+            backgroundColor: 'rgba(28,28,30,0.45)',
+            blurStyle: BlurStyle.BACKGROUND_THIN,
+            onDisappear: () => {
+              this.isSheetShow = false;
+            }
+          })
       }
       .width('100%').height('100%')
       .padding({
         left: 16,
         right: 16,
         top: 8,
-        bottom: 16
+        bottom: 0
       })
     }
     .height('100%')
@@ -126,11 +146,17 @@ export struct ChatPage {
       .alignItems(HorizontalAlign.Center)
     } else {
       List({ space: 8, scroller: this.scroller }) {
+        ListItem(){
+          Column().height('10%')
+        }
         ForEach(this.messages, (msg: PrivateMessage, index?: number) => {
           ListItem() {
             this.MessageItem(msg)
           }
         })
+        ListItem(){
+          Column().height('10%')
+        }
       }
       .width('100%')
       .layoutWeight(1)
@@ -236,35 +262,41 @@ export struct ChatPage {
   //        输入区域
   // ==========================
   @Builder
-  InputArea() {
-    Row() {
-      TextInput({ text: $$this.inputText, placeholder: '输入消息...' })
-        .placeholderColor('#666666')
-        .placeholderFont({ size: 13 })
-        .fontSize(13)
+  SheetBuilder() {
+    Column() {
+      Text('发送消息')
+        .fontSize(16)
         .fontColor('#EEEEEE')
-        .backgroundColor('rgba(22,22,22,0.8)')
-        .borderRadius(8)
-        .height(36)
-        .layoutWeight(1)
-        .padding({ left: 10, right: 10 })
+        .fontWeight(FontWeight.Medium)
+        .margin({ top: 16, bottom: 12 })
 
-      Button('↑')
-        .fontSize(10)
+      TextArea({ text: $$this.inputText, placeholder: '输入消息...' })
+        .placeholderColor('#666666')
+        .placeholderFont({ size: 14 })
+        .fontSize(14)
+        .fontColor('#EEEEEE')
+        .backgroundColor('rgba(40,40,40,0.9)')
+        .borderRadius(8)
+        .width('100%')
+        .height(120)
+        .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+
+      Button('发送')
+        .fontSize(15)
         .fontColor('#FFFFFF')
         .backgroundColor(this.inputText.trim().length === 0 || this.isSending ? '#555555' : '#FB7299')
         .borderRadius(8)
-        .height(36)
-        .width(27)
-        .margin({ left: 8 })
+        .height(40)
+        .width(75)
+        .margin({ top: 12, bottom: 24 })
         .enabled(this.inputText.trim().length > 0 && !this.isSending)
         .onClick(() => {
           this.doSend();
         })
     }
     .width('100%')
-    .padding({ top: 8, bottom: 4 , left: 12, right: 12})
-    .alignItems(VerticalAlign.Center)
+    .padding({ left: 20, right: 20 })
+    .alignItems(HorizontalAlign.Center)
   }
 
   // ===== 发送消息 =====
@@ -280,9 +312,8 @@ export struct ChatPage {
     try {
       let result = await sendTextMessage(this.talkerId, text, this.myUid);
       if (result.success) {
-        // 清空输入框
         this.inputText = '';
-        // 刷新消息列表
+        this.isSheetShow = false;
         await this.loadMessages();
       } else {
         this.toast(result.message);

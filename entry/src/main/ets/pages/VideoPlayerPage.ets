@@ -26,8 +26,9 @@ import { HEADERS } from '../api/CommonApi';
 import { BarrageView, BarrageController, BarrageItem, BarrageOption } from '@esky/barrage';
 import { getDanmakuItems, DanmakuData, createBarrageItem } from '../api/DanmakuApi';
 import batteryInfo from '@ohos.batteryInfo';
+import vibrator from '@ohos.vibrator';
 import { audio as harmoniousAudio } from '@kit.AudioKit';
-import { window } from '@kit.ArkUI';
+import { LengthMetrics, window } from '@kit.ArkUI';
 
 @Component
 export struct VideoPlayerPage {
@@ -61,6 +62,8 @@ export struct VideoPlayerPage {
   @State showMoreSheet: boolean = false;
   @State currentSpeed: number = 1.0;
   @State currentProgress: number = 0;
+  @State isSeeking: boolean = false;
+  @State isSeekLoading: boolean = false;
   @State totalDuration: number = 0;
   @State wasPlayingBeforeSheet: boolean = false;
   @State danmakuEnabled: boolean = true;
@@ -149,9 +152,14 @@ export struct VideoPlayerPage {
 
   seekTo(positionMs: number): void {
     let pos: number = Math.round(Math.max(0, positionMs));
+    this.isSeekLoading = true;
+    setTimeout(() => {
+      this.isSeekLoading = false;
+    }, 3000);
     try {
       this.mIjkMediaPlayer.seekTo(String(pos));
-    } catch (_e) { /* ignore */
+    } catch (_e) {
+      this.isSeekLoading = false;
     }
     if (this.isDashStream && this.audioRenderer) {
       this.audioRenderer.seekTo(pos);
@@ -292,6 +300,10 @@ export struct VideoPlayerPage {
               })
           )
         )
+        .onDigitalCrown((event: CrownEvent) => {
+          event.stopPropagation();
+          this.onDigitalCrownAction(event);
+        })
 
         // ── Controls 覆盖层（点击任意位置显示 5 秒后自动隐藏） ──
         Column() {
@@ -411,8 +423,9 @@ export struct VideoPlayerPage {
         })
       )
       .bindSheet($$this.showMoreSheet, this.MoreSheet(), {
-        height: SheetSize.LARGE,
-        backgroundColor: '#1C1C1E',
+        detents: [SheetSize.MEDIUM,SheetSize.LARGE],
+        backgroundColor: 'rgba(28,28,30,0.45)',
+        blurStyle: BlurStyle.BACKGROUND_THIN,
         onDisappear: () => {
           this.clearMoreProgressTimer();
           this.clearTimeTickTimer();
@@ -525,7 +538,9 @@ export struct VideoPlayerPage {
     this.showMoreSheet = true;
     this.clearMoreProgressTimer();
     this.moreProgressTimerId = setInterval(() => {
-      this.currentProgress = this.getCurrentPosition();
+      if (!this.isSeeking) {
+        this.currentProgress = this.getCurrentPosition();
+      }
     }, 500);
     this.initMoreSheetState();
     this.updateTimeDisplay();
@@ -566,15 +581,13 @@ export struct VideoPlayerPage {
   @Builder
   MoreSheet() {
     Column() {
-      Text('更多选项')
-        .fontSize(14).fontWeight(FontWeight.Bold).fontColor(Color.White)
-        .margin({ top: 20, bottom: 10 })
-
       List({ space: 14 }) {
+        ListItem(){
+          Column().height('4%')
+        }
         // ── 1. 进度调整 ──
         ListItem() {
-          Column({ space: 8 }) {
-            Text('进度调整').fontSize(15).fontColor('#CCCCCC').width('100%')
+          Column({ space: 2 }) {
             Row() {
               Text(this.formatTime(this.currentProgress) + " / " + this.formatTime(this.totalDuration))
                 .fontSize(13).fontColor(Color.White).textAlign(TextAlign.Start)
@@ -582,24 +595,45 @@ export struct VideoPlayerPage {
             .width('100%')
             .justifyContent(FlexAlign.Center)
 
-            Row() {
-              Slider({
-                value: this.currentProgress,
-                min: 0,
-                max: this.totalDuration > 0 ? this.totalDuration : 1,
-                step: 100,
-                style: SliderStyle.OutSet
-              })
-                .trackColor('#555555')
-                .selectedColor('#FF69B4')
-                .blockColor(Color.White)
-                .layoutWeight(1)
-                .onChange((value: number) => {
-                  this.currentProgress = value;
-                  this.seekTo(value);
+            Stack() {
+              Row() {
+                Slider({
+                  value: this.currentProgress,
+                  min: 0,
+                  max: this.totalDuration > 0 ? this.totalDuration : 1,
+                  step: 100,
+                  style: SliderStyle.OutSet
                 })
+                  .trackColor('#555555')
+                  .selectedColor('#FF69B4')
+                  .blockColor(Color.White)
+                  .layoutWeight(1)
+                  .onChange((value: number, mode: SliderChangeMode) => {
+                    this.currentProgress = value;
+                    if (mode === SliderChangeMode.Moving) {
+                      this.isSeeking = true;
+                    } else {
+                      this.isSeeking = false;
+                      this.isSeekLoading = true;
+                      this.seekTo(value);
+                    }
+                  })
+              }
+              .width('100%')
+
+              if (this.isSeekLoading) {
+                Row({ space: 6 }) {
+                  LoadingProgress().width(14).height(14).color(Color.White)
+                  Text('跳转中...').fontSize(11).fontColor('#AAAAAA')
+                }
+                .backgroundColor('rgba(0,0,0,0.6)')
+                .borderRadius(8)
+                .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+                .justifyContent(FlexAlign.Center)
+              }
             }
             .width('100%')
+            .alignContent(Alignment.Center)
           }
           .width('100%')
           .padding({
@@ -608,7 +642,7 @@ export struct VideoPlayerPage {
             left: 8,
             right: 8
           })
-          .backgroundColor('#2C2C2E')
+          .backgroundColor('#bf2c2c2e')
           .borderRadius(12)
         }
 
@@ -643,7 +677,7 @@ export struct VideoPlayerPage {
             left: 8,
             right: 8
           })
-          .backgroundColor('#2C2C2E')
+          .backgroundColor('#bf2c2c2e')
           .borderRadius(12)
         }
 
@@ -676,7 +710,7 @@ export struct VideoPlayerPage {
           }
           .width('100%')
           .padding(16)
-          .backgroundColor('#2C2C2E')
+          .backgroundColor('#bf2c2c2e')
           .borderRadius(12)
         }
 
@@ -749,6 +783,8 @@ export struct VideoPlayerPage {
                 .fontSize(12).fontColor('#AAAAAA').width(36).textAlign(TextAlign.End)
             }
             .width('100%')
+
+
           }
           .width('100%')
           .padding({
@@ -757,12 +793,16 @@ export struct VideoPlayerPage {
             left: 8,
             right: 8
           })
-          .backgroundColor('#2C2C2E')
+          .backgroundColor('#bf2c2c2e')
           .borderRadius(12)
+        }
+        ListItem(){
+          Column().height('8%')
         }
       }
       .width('100%')
-      .height(420)
+      .height(LengthMetrics.px(418))
+      .fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(10) })
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .focusable(true)
@@ -988,7 +1028,7 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer.native_setup();
 
       this.mIjkMediaPlayer.setOption('4', 'start-on-prepared', '0');
-      this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '0');
+      this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '1');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-auto-rotate', '1');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-handle-resolution-change', '1');
       this.mIjkMediaPlayer.setOption('4', 'enable-accurate-seek', '1');
@@ -1042,6 +1082,7 @@ export struct VideoPlayerPage {
 
       this.mIjkMediaPlayer.setOnSeekCompleteListener({
         onSeekComplete: () => {
+          this.isSeekLoading = false;
           this.onAudioSeek();
           let pos = this.getVideoPosition();
           if (pos > 0 && this.isDashStream && this.audioRenderer) {
@@ -1177,6 +1218,26 @@ export struct VideoPlayerPage {
   }
 
   private onPinchEnd(): void {
+  }
+
+  private onDigitalCrownAction(event: CrownEvent): void {
+    let delta: number = event.degree * 0.005;
+    let newScale: number = Math.max(this.MIN_SCALE, Math.min(this.MAX_SCALE, this.curScale + delta));
+    if (newScale === this.curScale) {
+      return;
+    }
+    this.curScale = newScale;
+    this.restrictBoundary();
+    try {
+      vibrator.startVibration({
+        type: 'time',
+        duration: 15
+      }, {
+        id: 0,
+        usage: 'touch'
+      });
+    } catch (_e) { /* ignore */
+    }
   }
 
   private onPanStart(): void {

@@ -271,7 +271,7 @@ export struct UserDetailPage {
 
   // 展示用的半模态窗口
   @Builder
-  favFolderSheetBuilder() {
+  DetailSheetBuilder() {
     Column() {
       // 标题栏
       Text(this.sheetTitle)
@@ -349,7 +349,6 @@ export struct UserDetailPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#1C1C1E')
     .alignItems(HorizontalAlign.Center)
   }
 
@@ -750,8 +749,10 @@ export struct UserDetailPage {
       .borderRadius(10)
       .backgroundColor('rgba(22,22,22,0.6)')
     }
-    .bindSheet($$this.isSheetOpen, this.favFolderSheetBuilder(),
-      { height: SheetSize.LARGE, backgroundColor: Color.Transparent, blurStyle: BlurStyle.Regular })
+    .bindSheet($$this.isSheetOpen, this.DetailSheetBuilder(), {
+        height: SheetSize.LARGE ,
+        backgroundColor: 'rgba(28,28,30,0.45)',
+        blurStyle: BlurStyle.BACKGROUND_THIN})
     .height('100%')
     .width('100%')
     .backgroundImage($r("app.media.oobe"))

@@ -161,6 +161,7 @@ export struct SearchPage {
         Column() {
           SymbolGlyph($r("sys.symbol.arrow_counterclockwise_clock"))
             .fontSize(35)
+            .fontColor(['#777777'])
           Text('暂无历史')
             .fontSize(14)
             .fontColor('#666666')
