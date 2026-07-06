@@ -5,6 +5,16 @@
       "copyCodeResource": {
         "enable": false
       }
+    },
+    "externalNativeOptions": {
+      "abiFilters": [
+        "arm64-v8a"
+      ]
+    },
+    "nativeLib": {
+      "filter": {
+        "excludes": ["**/x86_64/*.so"]
+      }
     }
   },
   "buildOptionSet": [
