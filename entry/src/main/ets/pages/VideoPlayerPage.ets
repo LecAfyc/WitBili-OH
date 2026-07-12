@@ -319,6 +319,9 @@ export struct VideoPlayerPage {
               })
           )
         )
+        .focusable(true)
+        .focusOnTouch(true)
+        .defaultFocus(!this.showMoreSheet)
         .onDigitalCrown((event: CrownEvent) => {
           event.stopPropagation();
           this.onDigitalCrownAction(event);
@@ -593,10 +596,6 @@ export struct VideoPlayerPage {
     }
   }
 
-  // ===================================================================
-  //  弹幕
-  // ===================================================================
-
   @Builder
   MoreSheet() {
     Column() {
@@ -700,73 +699,7 @@ export struct VideoPlayerPage {
           .borderRadius(12)
         }
 
-        // ── 2b. 清晰度选择 ──
-        ListItem() {
-          Column({ space: 8 }) {
-            Text('清晰度').fontSize(15).fontColor('#CCCCCC').width('100%')
-            if (this.availableQualities.length > 0) {
-              Flex({ wrap: FlexWrap.Wrap }) {
-                ForEach(this.availableQualities, (item: VideoQuality) => {
-                  Button(item.name)
-                    .fontSize(12)
-                    .fontColor(item.qn === this.qn ? Color.White : '#CCCCCC')
-                    .backgroundColor(
-                      item.qn === this.qn ? '#FF69B4' : '#333333'
-                    )
-                    .borderRadius(16)
-                    .height(32)
-                    .padding({ left: 14, right: 14 })
-                    .margin(1)
-                    .onClick(() => {
-                      this.switchQuality(item.qn);
-                    })
-                }, (item: VideoQuality) => String(item.qn))
-              }
-              .width('100%')
-            } else {
-              Text('加载中...').fontSize(12).fontColor('#888888')
-            }
-          }
-          .width('100%')
-          .padding({ top: 10, bottom: 10, left: 8, right: 8 })
-          .backgroundColor('#bf2c2c2e')
-          .borderRadius(12)
-        }
-
-        // ── 3. 信息显示（时间 + 电量） ──
-        ListItem() {
-          Row() {
-            Column({ space: 4 }) {
-              Text('当前时间').fontSize(11).fontColor('#888888')
-              Text(this.currentTimeDisplay)
-                .fontSize(22).fontWeight(FontWeight.Bold).fontColor(Color.White)
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-
-            Column({ space: 4 }) {
-              Text('电池电量').fontSize(11).fontColor('#888888')
-              Row({ space: 6 }) {
-                Text(this.batteryLevel >= 0 ? this.batteryLevel + '%' : '--')
-                  .fontSize(22).fontWeight(FontWeight.Bold)
-                  .fontColor(this.batteryLevel > 20 ? Color.White : '#FF4444')
-                if (this.batteryLevel >= 0) {
-                  SymbolGlyph(this.getBatteryIcon(this.batteryLevel))
-                    .fontSize(18)
-                    .fontColor([this.batteryLevel > 20 ? '#34C759' : '#FF4444'])
-                }
-              }
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.End)
-          }
-          .width('100%')
-          .padding(16)
-          .backgroundColor('#bf2c2c2e')
-          .borderRadius(12)
-        }
-
-        // ── 4. 音量 + 亮度调节 ──
+        // ── 3. 音量 + 亮度调节 ──
         ListItem() {
           Column({ space: 12 }) {
             // 音量
@@ -848,6 +781,73 @@ export struct VideoPlayerPage {
           .backgroundColor('#bf2c2c2e')
           .borderRadius(12)
         }
+
+        // ── 3b. 清晰度选择 ──
+        ListItem() {
+          Column({ space: 8 }) {
+            Text('清晰度').fontSize(15).fontColor('#CCCCCC').width('100%')
+            if (this.availableQualities.length > 0) {
+              Flex({ wrap: FlexWrap.Wrap }) {
+                ForEach(this.availableQualities, (item: VideoQuality) => {
+                  Button(item.name)
+                    .fontSize(12)
+                    .fontColor(item.qn === this.qn ? Color.White : '#CCCCCC')
+                    .backgroundColor(
+                      item.qn === this.qn ? '#FF69B4' : '#333333'
+                    )
+                    .borderRadius(16)
+                    .height(32)
+                    .padding({ left: 14, right: 14 })
+                    .margin(1)
+                    .onClick(() => {
+                      this.switchQuality(item.qn);
+                    })
+                }, (item: VideoQuality) => String(item.qn))
+              }
+              .width('100%')
+            } else {
+              Text('加载中...').fontSize(12).fontColor('#888888')
+            }
+          }
+          .width('100%')
+          .padding({ top: 10, bottom: 10, left: 8, right: 8 })
+          .backgroundColor('#bf2c2c2e')
+          .borderRadius(12)
+        }
+
+        // ── 4. 信息显示（时间 + 电量） ──
+        ListItem() {
+          Row() {
+            Column({ space: 4 }) {
+              Text('当前时间').fontSize(11).fontColor('#888888')
+              Text(this.currentTimeDisplay)
+                .fontSize(22).fontWeight(FontWeight.Bold).fontColor(Color.White)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+
+            Column({ space: 4 }) {
+              Text('电池电量').fontSize(11).fontColor('#888888')
+              Row({ space: 6 }) {
+                Text(this.batteryLevel >= 0 ? this.batteryLevel + '%' : '--')
+                  .fontSize(22).fontWeight(FontWeight.Bold)
+                  .fontColor(this.batteryLevel > 20 ? Color.White : '#FF4444')
+                if (this.batteryLevel >= 0) {
+                  SymbolGlyph(this.getBatteryIcon(this.batteryLevel))
+                    .fontSize(18)
+                    .fontColor([this.batteryLevel > 20 ? '#34C759' : '#FF4444'])
+                }
+              }
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.End)
+          }
+          .width('100%')
+          .padding(16)
+          .backgroundColor('#bf2c2c2e')
+          .borderRadius(12)
+        }
+
         ListItem(){
           Column().height('8%')
         }
@@ -859,7 +859,7 @@ export struct VideoPlayerPage {
       .scrollBar(BarState.Off)
       .focusable(true)
       .focusOnTouch(true)
-      .defaultFocus(true)
+      .defaultFocus(this.showMoreSheet)
     }
     .width('100%')
     .height('100%')

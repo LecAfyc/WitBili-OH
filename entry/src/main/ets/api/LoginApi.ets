@@ -531,16 +531,28 @@ export async function checkCookieRefreshIfNeeded(): Promise<boolean> {
 }
 
 /**
+ * checkLoginStatus() 返回值：
+ *   VALID   — 服务端确认登录有效
+ *   INVALID — 登录已失效（未登录/登录过期），应提示用户重新登录
+ *   ERROR   — 网络/服务端异常，无法判断登录状态，应保留凭据
+ */
+export enum LoginCheckStatus {
+  VALID,
+  INVALID,
+  ERROR
+}
+
+/**
  * 检查当前登录状态是否有效
  * 调用 B 站 nav API 确认服务端登录态
- * @returns true=登录有效, false=已失效/未登录
+ * @returns VALID=登录有效, INVALID=已失效/未登录, ERROR=网络/服务端异常
  */
-export async function checkLoginStatus(): Promise<boolean> {
+export async function checkLoginStatus(): Promise<LoginCheckStatus> {
   try {
     // 快速本地检查：SESSDATA 是否存在
     if (!cookieMap['SESSDATA'] && !cookieMap['AccountData']) {
       console.info('[Login] 本地无登录凭证');
-      return false;
+      return LoginCheckStatus.INVALID;
     }
 
     // 服务端校验：调用 nav 接口
@@ -550,17 +562,17 @@ export async function checkLoginStatus(): Promise<boolean> {
     console.info("[Login] nav-resp = " + JSON.stringify(resp));
     if (resp.code !== 0 || !resp.data) {
       console.warn('[Login] nav 接口异常, code=' + resp.code);
-      return false;
+      return LoginCheckStatus.ERROR;
     }
 
     let dataObj: Record<string, Object> = resp.data as Record<string, Object>;
     let isLogin: boolean = (dataObj['isLogin'] as boolean) ?? false;
 
     console.info('[Login] 登录状态检查: isLogin=' + isLogin);
-    return isLogin;
+    return isLogin ? LoginCheckStatus.VALID : LoginCheckStatus.INVALID;
   } catch (e) {
-    console.error('[Login] checkLoginStatus 异常:', JSON.stringify(e));
-    return false;
+    console.error('[Login] checkLoginStatus 网络异常:', JSON.stringify(e));
+    return LoginCheckStatus.ERROR;
   }
 }
 

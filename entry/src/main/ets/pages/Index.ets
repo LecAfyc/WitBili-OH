@@ -9,6 +9,7 @@ import {
   checkCookieRefreshIfNeeded,
   checkLoginStatus,
   getMyAccountInfo,
+  LoginCheckStatus,
   MyAccountInfo
 } from '../api/LoginApi';
 import { common } from '@kit.AbilityKit';
@@ -35,12 +36,13 @@ AppStorage.setOrCreate<number>('mid', 0);
 @Component
 struct Index {
   @Provide('pageStack') pageStack: NavPathStack = new NavPathStack();
+  @State initialized: boolean = false
 
   // ==========================
   //        路由映射表
   // ==========================
   @Builder
-  pageMap(name: string, param: Object) {
+  pageMap(name: string, _param: Object) {
     if (name === 'Menu') {
       // 侧边菜单
       Column() {
@@ -92,12 +94,10 @@ struct Index {
     }
   }
 
-  @State initialized: boolean = false
-
   aboutToAppear(): void {
     this.pageStack.setInterception({
-      willShow: (from: NavDestinationContext | NavBar, to: NavDestinationContext | NavBar,
-        operation: NavigationOperation, isAnimated: boolean) => {
+      willShow: (_from: NavDestinationContext | NavBar, to: NavDestinationContext | NavBar,
+        operation: NavigationOperation, _isAnimated: boolean) => {
         if (operation === NavigationOperation.POP && to === 'navBar') {
           AppStorage.get<common.UIAbilityContext>("UiAbilityContext")?.terminateSelf().catch(() => {
             this.pageStack.clear();
@@ -127,15 +127,18 @@ struct Index {
               this.getUIContext().getPromptAction().showToast({ message: 'Cookie 已自动刷新' });
             }
           });
-          checkLoginStatus().then((valid: boolean) => {
-            if (!valid) {
+          checkLoginStatus().then((status: LoginCheckStatus) => {
+            if (status === LoginCheckStatus.INVALID) {
               this.getUIContext().getPromptAction().showToast({ message: '登录状态已失效，请重新登录' });
               AppStorage.set<String>('AccountData', 'null');
               AppStorage.set<String>('refresh_token', "");
-            } else {
+            } else if (status === LoginCheckStatus.VALID) {
               getMyAccountInfo().then((info: MyAccountInfo | null) => {
                 AppStorage.set<number>('mid', info?.mid)
               })
+            } else if (status === LoginCheckStatus.ERROR) {
+              this.getUIContext().getPromptAction().showToast({ message: '网络错误！' });
+              AppStorage.set<number>('mid', 0)
             }
           });
         }
