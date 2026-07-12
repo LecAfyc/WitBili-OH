@@ -75,7 +75,7 @@ function parseCommentItem(item: Record<string, Object>): SingleComment {
       const keys: string[] = Object.keys(emote);
       console.info('[CommentApi] emote count: ' + keys.length);
       for (let i = 0; i < keys.length; i++) {
-        const fullKey = keys[i]; // "[大哭]"
+        const fullKey = keys[i];
         const name = fullKey.length >= 2 ? fullKey.substring(1, fullKey.length - 1) : fullKey;
         const emojiObj = emote[fullKey] as Record<string, Object> | undefined;
         const url = emojiObj ? (emojiObj['url'] as string) : '';

@@ -76,7 +76,6 @@ function getFileFirstName(file: string): string {
  * 获取最新的 img_key 和 sub_key（拼接后返回 raw key）
  */
 async function fetchWBIRawKey(): Promise<string> {
-  console.info("WBIFetch - start")
   let httpRequest: http.HttpRequest = http.createHttp();
   return new Promise<string>((resolve: (value: string) => void) => {
     httpRequest.request(
@@ -93,14 +92,12 @@ async function fetchWBIRawKey(): Promise<string> {
       },
       (err: Error, data: http.HttpResponse) => {
         httpRequest.destroy();
-        console.info("WBI - HTTPS End")
         if (err) {
           console.warn('[WbiSign] nav 请求失败，使用备用 key');
           resolve(FALLBACK_RAW_KEY);
           return;
         }
         try {
-          console.info("[wbiSign] Result - " + JSON.stringify(data.result))
           let result: Record<string, Object> = JSON.parse(data.result as string) as Record<string, Object>;
           let navData: Record<string, Object> = result['data'] as Record<string, Object>;
           if (!navData) {
@@ -116,7 +113,7 @@ async function fetchWBIRawKey(): Promise<string> {
           let subUrl: string = wbiImg['sub_url'] || '';
           let imgKey: string = getFileFirstName(getFileNameFromLink(imgUrl));
           let subKey: string = getFileFirstName(getFileNameFromLink(subUrl));
-          console.info("WBI - imgKey= " + imgKey + " subKey= " + subKey)
+          console.info("[WbiSign] imgKey= " + imgKey + " subKey= " + subKey)
           resolve(imgKey + subKey);
         } catch (e) {
           console.warn('[WbiSign] nav 解析失败，使用备用 key');

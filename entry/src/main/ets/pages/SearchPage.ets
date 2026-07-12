@@ -88,24 +88,27 @@ export struct SearchPage {
 
       // ── 搜索历史 ──
       if (this.getHistoryList().length > 0) {
-        Row() {
-          Text('搜索历史')
-            .fontSize(14)
-            .fontColor('#AAAAAA')
-
-          Blank()
-
-          Text('清空')
-            .fontSize(13)
-            .fontColor('#FB7299')
-            .onClick(() => {
-              this.clearHistory();
-            })
-        }
-        .width('100%')
-        .padding({ top: 16, bottom: 8 })
 
         List({ space: 2 }) {
+          ListItem(){
+            Row() {
+              Text('搜索历史')
+                .fontSize(14)
+                .fontColor('#AAAAAA')
+
+              Blank()
+
+              Text('清空')
+                .fontSize(13)
+                .fontColor('#FB7299')
+                .onClick(() => {
+                  this.clearHistory();
+                })
+            }
+            .width('100%')
+            .padding({ top: 16, bottom: 8 })
+          }
+
           ForEach(this.getHistoryList(), (item: string) => {
             ListItem() {
               Row() {
