@@ -6,17 +6,17 @@
  */
 
 import { LengthMetrics } from '@kit.ArkUI';
-import { UserCard } from '../../model/UserCard';
-import { VideoCard } from '../../model/ContentCard';
-import { VideoPage } from '../../model/VideoPage';
-import { UserCardComponent } from '../UserCardComponent';
-import { getFullVideoDetail } from '../../api/VideoDetailApi';
-import { likeVideo, addCoin, addVideoToFavFolders, checkHasLiked, checkCoinCount, checkHasFavoured } from '../../api/VideoActionApi';
-import { getUserCreatedFavFolders } from '../../api/UserApi';
-import { FavFolder } from '../../model/FavFolder';
-import { addToView } from '../../api/HistoryApi';
-import { av2bv, formatCount } from '../../api/CommonApi';
-import { getVideoQualities, VideoQuality } from '../../api/VideoDetailApi';
+import { UserCard } from '../model/UserCard';
+import { VideoCard } from '../model/ContentCard';
+import { VideoPage } from '../model/VideoPage';
+import { UserCardComponent } from './UserCardComponent';
+import { getFullVideoDetail } from '../api/VideoDetailApi';
+import { likeVideo, addCoin, addVideoToFavFolders, checkHasLiked, checkCoinCount, checkHasFavoured } from '../api/VideoActionApi';
+import { getUserCreatedFavFolders } from '../api/UserApi';
+import { FavFolder } from '../model/FavFolder';
+import { addToView } from '../api/HistoryApi';
+import { av2bv, formatCount } from '../api/CommonApi';
+import { getVideoQualities, VideoQuality } from '../api/VideoDetailApi';
 
 /** bindMenu 菜单项 */
 interface MenuAction {
@@ -649,28 +649,28 @@ export struct VideoDetailArc {
           .bindMenu(new Array<MenuAction>(
             {
               value: '缓存', action: () => {
-              console.info('[More] 缓存');
-            }
+                console.info('[More] 缓存');
+              }
             },
             {
               value: '流转', action: () => {
-              this.pageStack.pushPath({ name: 'QrCode', param: 'https://www.bilibili.com/video/' + this.bv });
-            }
+                this.pageStack.pushPath({ name: 'QrCode', param: 'https://www.bilibili.com/video/' + this.bv });
+              }
             },
             {
               value: '稍后再看', action: async () => {
-              let aid: number = this.pageParam.aid;
-              if (aid <= 0) {
-                this.toast('视频ID无效');
-                return;
+                let aid: number = this.pageParam.aid;
+                if (aid <= 0) {
+                  this.toast('视频ID无效');
+                  return;
+                }
+                let res = await addToView(aid);
+                if (res.success) {
+                  this.toast('已加入稍后再看');
+                } else {
+                  this.toast(res.message || '加入失败');
+                }
               }
-              let res = await addToView(aid);
-              if (res.success) {
-                this.toast('已加入稍后再看');
-              } else {
-                this.toast(res.message || '加入失败');
-              }
-            }
             }
           ))
         }

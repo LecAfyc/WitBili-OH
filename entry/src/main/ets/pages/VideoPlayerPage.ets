@@ -176,7 +176,7 @@ export struct VideoPlayerPage {
   setSpeed(speed: number): void {
     speed = Math.max(0.5, Math.min(3.0, speed));
     try {
-      this.mIjkMediaPlayer.setOption('4', 'playback-rate', String(speed));
+      this.mIjkMediaPlayer.setSpeed(String(speed));
     } catch (_e) { /* ignore */
     }
     if (this.isDashStream && this.audioRenderer) {

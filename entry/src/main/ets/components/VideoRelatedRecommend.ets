@@ -5,9 +5,9 @@
  * 数据加载职责由组件自治，页面层仅传入标识符参数。
  */
 
-import { VideoCard } from '../../model/ContentCard';
-import { VideoCardComponent } from '../VideoCardComponent';
-import { getRelatedVideos } from '../../api/RecommendApi';
+import { VideoCard } from '../model/ContentCard';
+import { VideoCardComponent } from './VideoCardComponent';
+import { getRelatedVideos } from '../api/RecommendApi';
 
 @Component
 export struct VideoRelatedRecommend {

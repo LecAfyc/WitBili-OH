@@ -10,7 +10,7 @@
 
 import { ArcSwiper } from '@kit.ArkUI';
 import { DynamicCardComponent } from '../components/DynamicCardComponent';
-import { CommentSection } from '../components/VideoDetail/CommentSection';
+import { CommentSection } from '../components/CommentSection';
 import { getDynamicDetail, getForwardItem } from '../api/DynamicApi';
 import { Dynamic } from '../model/Dynamic';
 

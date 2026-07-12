@@ -3,10 +3,10 @@
  *
  */
 
-import { SingleComment } from '../../model/CommentCard';
-import { CommentCardComponent } from '../CommentCardComponent';
-import { getCommentList, getCommentCount } from '../../api/CommentApi';
-import { formatCount } from '../../api/CommonApi';
+import { SingleComment } from '../model/CommentCard';
+import { CommentCardComponent } from './CommentCardComponent';
+import { getCommentList, getCommentCount } from '../api/CommentApi';
+import { formatCount } from '../api/CommonApi';
 import { LengthMetrics } from '@kit.ArkUI';
 
 @Component

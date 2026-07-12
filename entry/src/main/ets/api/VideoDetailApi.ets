@@ -227,8 +227,7 @@ export async function getVideoTags(bvid: string): Promise<Array<string>> {
   let result: Array<string> = [];
   for (let i: number = 0; i < tagArr.length; i++) {
     let item: TagItem = tagArr[i] as TagItem;
-    // 跳过有跳转链接的标签——手表上无法跳转，显示也没用
-    if (item.tag_name && !item.jump_url) {
+    if (item.tag_name) {
       result.push(item.tag_name);
     }
   }
