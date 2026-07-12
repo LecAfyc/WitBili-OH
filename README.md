@@ -20,11 +20,7 @@
 
 ### 截图
 
-![首页推荐](screenshots/rcmd.png)
-
-![导航菜单](screenshots/nav_menu.png)
-
-![动态](screenshots/dynamic.png)
+![首页推荐](screenshots/screenshot.png)
 
 ### 功能
 
