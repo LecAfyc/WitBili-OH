@@ -46,6 +46,7 @@ export struct VideoPlayerPage {
   @State isLoading: boolean = true;
   @State errorMsg: string = '';
   @State isPlaying: boolean = false;
+  @State playSpeed: number = 1.0;
   // ===== 音频 =====
   @State stateText: string = '';
   // ===== 手势缩放与拖拽 =====
@@ -103,8 +104,6 @@ export struct VideoPlayerPage {
   private danmakuTimer: number | undefined = undefined;
   private lastCheckedPosition: number = 0;
   // ===== 历史记录上报 =====
-  private reportTimerId: number | undefined = undefined;
-  private readonly REPORT_INTERVAL_MS: number = 15000;
   private controlsTimerId: number | undefined = undefined;
   private moreProgressTimerId: number | undefined = undefined;
   private timeTickTimerId: number | undefined = undefined;
@@ -174,10 +173,11 @@ export struct VideoPlayerPage {
   }
 
   setSpeed(speed: number): void {
-    speed = Math.max(0.5, Math.min(3.0, speed));
     try {
-      this.mIjkMediaPlayer.setSpeed(String(speed));
-    } catch (_e) { /* ignore */
+      console.info("[IjkPlayer] Try change speed to " + speed)
+      this.mIjkMediaPlayer.setSpeed(String(speed) + 'f');
+    } catch (e) {
+      console.error("[IjkPlayer] 变速失败，原因：" + JSON.stringify(e))
     }
     if (this.isDashStream && this.audioRenderer) {
       this.audioRenderer.setSpeed(speed);
@@ -1192,6 +1192,8 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer.setOption('1', 'connect_timeout', '15000000');
       this.mIjkMediaPlayer.setOption('1', 'addrinfo_timeout', '15000000');
       this.mIjkMediaPlayer.setOption('1', 'dns_cache_timeout', '15000000');
+      this.mIjkMediaPlayer.setOption('4', "framedrop", "5");
+      this.mIjkMediaPlayer.setOption('4', "soundtouch", "1");
 
       this.mIjkMediaPlayer.setOnPreparedListener({
         onPrepared: () => {

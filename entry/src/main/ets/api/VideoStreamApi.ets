@@ -1,6 +1,6 @@
 /**
- * 视频 DASH 流解析 API
- *
+ * 视频流解析 API
+ * 优先使用 durl（MP4 音视频合一），无则降级到 DASH（音视频分离）
  */
 
 import { ApiResponse, httpGet } from './CommonApi';
@@ -264,28 +264,24 @@ function getVideoStreamForQn(dashData: DashData, qn: number): DashVideoStream | 
 // ===== 主 API =====
 
 /**
- * 获取视频 DASH 流地址
- *
- * @param bvid 稿件 bvid
- * @param cid  分P cid
- * @param qn   目标清晰度（如 80=1080P, 64=720P, 32=480P）
+ * 构建请求 URL 并获取视频流 API 响应数据
+ * @param fnval 视频流格式标识（1=MP4/durl, 4048=全部DASH）
  */
-export async function getDashPlayUrl(bvid: string, cid: number, qn: number): Promise<DashPlayUrlResult> {
+async function fetchPlayUrlData(bvid: string, cid: number, qn: number, fnval: number): Promise<Record<string, Object>> {
   let url: string = 'https://api.bilibili.com/x/player/wbi/playurl?'
     + 'bvid=' + encodeURIComponent(bvid)
     + '&cid=' + cid.toString()
     + '&qn=' + qn.toString()
-    + '&fnval=16&fnver=0'
+    + '&fnval=' + fnval.toString()
+    + '&fnver=0'
     + '&platform=pc'
     + '&voice_balance=1'
     + '&gaia_source=pre-load'
     + '&isGaiaAvoided=true';
 
-  // 2. WBI 签名
   let signedUrl: string = await signWBI(url);
-  console.info('[VideoStreamApi] signed playurl (DASH): ' + signedUrl);
+  console.info('[VideoStreamApi] signed playurl (fnval=' + fnval + '): ' + signedUrl);
 
-  // 3. 发送请求
   let resp: ApiResponse = await httpGet(signedUrl);
   if (resp.code !== 0) {
     throw new Error('获取视频流失败: code=' + resp.code + ' msg=' + resp.message);
@@ -294,23 +290,84 @@ export async function getDashPlayUrl(bvid: string, cid: number, qn: number): Pro
     throw new Error('获取视频流失败: data 为空');
   }
 
-  let d: Record<string, Object> = resp.data as Record<string, Object>;
+  return resp.data as Record<string, Object>;
+}
+
+/**
+ * 获取视频播放地址
+ * 优先使用 durl（MP4 音视频合一，fnval=1），无则降级到 DASH（fnval=4048）
+ *
+ * @param bvid 稿件 bvid
+ * @param cid  分P cid
+ * @param qn   目标清晰度（如 80=1080P, 64=720P, 32=480P）
+ */
+export async function getDashPlayUrl(bvid: string, cid: number, qn: number): Promise<DashPlayUrlResult> {
   let danmakuUrl: string = 'https://comment.bilibili.com/' + cid.toString() + '.xml';
 
-  // 4. 解析清晰度列表
-  let acceptDescription: string[] = (d['accept_description'] as string[]) || [];
-  let acceptQuality: number[] = (d['accept_quality'] as number[]) || [];
-  let lastPlayTime: number = (d['last_play_time'] as number) || 0;
+  // 第一轮：优先请求 MP4/durl 格式（fnval=1）
+  console.info('[VideoStreamApi] 优先请求 MP4/durl 格式');
+  let durlData: Record<string, Object>;
+  try {
+    durlData = await fetchPlayUrlData(bvid, cid, qn, 1);
+  } catch (e) {
+    console.info('[VideoStreamApi] MP4 请求异常，尝试 DASH 降级: ' + String(e));
+    return await fetchAndParseDash(bvid, cid, qn, danmakuUrl);
+  }
 
-  // 5. 检查是否有 DASH 数据
-  let dashRaw: Record<string, Object> | undefined = d['dash'] as Record<string, Object>;
+  let acceptDescription: string[] = (durlData['accept_description'] as string[]) || [];
+  let acceptQuality: number[] = (durlData['accept_quality'] as number[]) || [];
+  let lastPlayTime: number = (durlData['last_play_time'] as number) || 0;
+
+  let durl: Object[] = (durlData['durl'] as Object[]) || [];
+  if (durl.length > 0) {
+    console.info('[VideoStreamApi] durl 数据存在，使用 MP4 流');
+    let firstSeg: Record<string, Object> = durl[0] as Record<string, Object>;
+    let rawUrl: string = (firstSeg['url'] as string) || '';
+    let videoUrl: string = rawUrl.replace(/\\u0026/g, '&');
+
+    let emptyDashData: DashData = {
+      duration: 0,
+      minBufferTime: 1.5,
+      videoStreams: [],
+      audioStreams: [],
+      dolbyAudio: null,
+      flacAudio: null,
+      streamType: 0
+    };
+
+    return {
+      videoUrl: videoUrl,
+      audioUrl: '',
+      dashData: emptyDashData,
+      acceptDescription: acceptDescription,
+      acceptQuality: acceptQuality,
+      lastPlayTime: lastPlayTime,
+      danmakuUrl: danmakuUrl,
+      isDash: false
+    };
+  }
+
+  // 第二轮：降级到 DASH（fnval=4048，全部 DASH 流）
+  console.info('[VideoStreamApi] 无 durl 数据，降级到 DASH');
+  return await fetchAndParseDash(bvid, cid, qn, danmakuUrl);
+}
+
+/**
+ * 请求 DASH 格式并解析
+ */
+async function fetchAndParseDash(bvid: string, cid: number, qn: number, danmakuUrl: string): Promise<DashPlayUrlResult> {
+  let dashDataRaw: Record<string, Object> = await fetchPlayUrlData(bvid, cid, qn, 4048);
+
+  let acceptDescription: string[] = (dashDataRaw['accept_description'] as string[]) || [];
+  let acceptQuality: number[] = (dashDataRaw['accept_quality'] as number[]) || [];
+  let lastPlayTime: number = (dashDataRaw['last_play_time'] as number) || 0;
+
+  let dashRaw: Record<string, Object> | undefined = dashDataRaw['dash'] as Record<string, Object>;
   if (dashRaw) {
-    // ---- DASH 模式 ----
     console.info('[VideoStreamApi] DASH 数据存在，解析 DASH 流');
 
     let dashData: DashData = parseDashData(dashRaw);
 
-    // 选中指定清晰度的视频流
     let videoStream: DashVideoStream | null = getVideoStreamForQn(dashData, qn);
     let videoUrl: string = '';
     if (videoStream) {
@@ -320,7 +377,6 @@ export async function getDashPlayUrl(bvid: string, cid: number, qn: number): Pro
         + ', ' + videoStream.width + 'x' + videoStream.height);
     }
 
-    // 选中最佳音频流
     let audioStream: DashAudioStream | null = getBestAudioStream(dashData);
     let audioUrl: string = '';
     if (audioStream) {
@@ -342,35 +398,5 @@ export async function getDashPlayUrl(bvid: string, cid: number, qn: number): Pro
     };
   }
 
-  console.info('[VideoStreamApi] 无 DASH 数据，fallback 到 durl');
-  let durl: Object[] = (d['durl'] as Object[]) || [];
-  if (durl.length === 0) {
-    throw new Error('获取视频地址失败: 既无 DASH 也无 durl');
-  }
-
-  let firstSeg: Record<string, Object> = durl[0] as Record<string, Object>;
-  let rawUrl: string = (firstSeg['url'] as string) || '';
-  let videoUrl: string = rawUrl.replace(/\\u0026/g, '&');
-
-  // 构造一个空的 DashData
-  let emptyDashData: DashData = {
-    duration: 0,
-    minBufferTime: 1.5,
-    videoStreams: [],
-    audioStreams: [],
-    dolbyAudio: null,
-    flacAudio: null,
-    streamType: 0
-  };
-
-  return {
-    videoUrl: videoUrl,
-    audioUrl: '',
-    dashData: emptyDashData,
-    acceptDescription: acceptDescription,
-    acceptQuality: acceptQuality,
-    lastPlayTime: lastPlayTime,
-    danmakuUrl: danmakuUrl,
-    isDash: false
-  };
+  throw new Error('获取视频地址失败: 既无 durl 也无 DASH');
 }
