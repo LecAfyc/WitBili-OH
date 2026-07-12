@@ -187,6 +187,9 @@ export struct CommentSection {
         this.commentList = result.list;
       } else {
         this.commentList = this.commentList.concat(result.list);
+        if (this.commentList.length > 50) {
+          this.commentList = this.commentList.slice(this.commentList.length - 50);
+        }
       }
 
       this.hasMore = result.list.length >= 10;

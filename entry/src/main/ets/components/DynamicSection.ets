@@ -200,6 +200,9 @@ export struct DynamicSection {
           }
         } else {
           this.dynamicList = this.dynamicList.concat(result.list);
+          if (this.dynamicList.length > 50) {
+            this.dynamicList = this.dynamicList.slice(this.dynamicList.length - 50);
+          }
         }
 
         this.loadOffset = result.offset;
@@ -212,6 +215,9 @@ export struct DynamicSection {
           this.dynamicList = result.list;
         } else {
           this.dynamicList = this.dynamicList.concat(result.list);
+          if (this.dynamicList.length > 50) {
+            this.dynamicList = this.dynamicList.slice(this.dynamicList.length - 50);
+          }
         }
 
         this.loadOffset = result.offset;

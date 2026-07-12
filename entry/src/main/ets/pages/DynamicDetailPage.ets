@@ -11,7 +11,7 @@
 import { ArcSwiper } from '@kit.ArkUI';
 import { DynamicCardComponent } from '../components/DynamicCardComponent';
 import { CommentSection } from '../components/VideoDetail/CommentSection';
-import { getDynamicDetail } from '../api/DynamicApi';
+import { getDynamicDetail, getForwardItem } from '../api/DynamicApi';
 import { Dynamic } from '../model/Dynamic';
 
 @Component
@@ -57,7 +57,9 @@ export struct DynamicDetailPage {
           if (this.pageParam.comment_id > 0) {
             CommentSection({
               aid: this.pageParam.comment_id,
-              type: [11, 17]
+              type: this.pageParam.comment_type > 0
+                ? [this.pageParam.comment_type]
+                : [11, 17]
             })
           } else {
             Column() {
@@ -113,7 +115,6 @@ export struct DynamicDetailPage {
     try {
       const detail: Dynamic | null = await getDynamicDetail(dyid);
       if (detail) {
-        // 保留外部传入的引用字段（如 userInfo），再覆盖 API 返回的数据
         if (!detail.userInfo || !detail.userInfo.mid) {
           detail.userInfo = this.pageParam.userInfo;
         }
@@ -122,7 +123,24 @@ export struct DynamicDetailPage {
           detail.emoteMap = this.pageParam.emoteMap;
           detail.memberMap = this.pageParam.memberMap;
         }
+        if (!detail.comment_id && this.pageParam.comment_id > 0) {
+          detail.comment_id = this.pageParam.comment_id;
+          detail.comment_type = this.pageParam.comment_type;
+        }
         this.pageParam = detail;
+      } else {
+        const forwardItem: Dynamic | null = await getForwardItem(dyid);
+        if (forwardItem) {
+          if (!forwardItem.userInfo || !forwardItem.userInfo.mid) {
+            forwardItem.userInfo = this.pageParam.userInfo;
+          }
+          if (!forwardItem.message) {
+            forwardItem.message = this.pageParam.message;
+            forwardItem.emoteMap = this.pageParam.emoteMap;
+            forwardItem.memberMap = this.pageParam.memberMap;
+          }
+          this.pageParam = forwardItem;
+        }
       }
     } catch (e) {
       console.warn('[DynamicDetail] refresh 失败，使用初始数据:', String(e));

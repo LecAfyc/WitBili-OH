@@ -91,6 +91,9 @@ export struct UserDetailPage {
       let result = await getUserVideos(this.pageParam.mid, this.videoPage, 30);
       if (result.videos.length > 0) {
         this.videoList = this.videoList.concat(result.videos);
+        if (this.videoList.length > 50) {
+          this.videoList = this.videoList.slice(this.videoList.length - 50);
+        }
         this.videoTotal = result.total;
         this.videoPage++;
         // 已加载数 >= 总数说明没有更多了
@@ -116,6 +119,9 @@ export struct UserDetailPage {
       let result = await getUserArticles(this.pageParam.mid, this.articlePage, 30);
       if (result.articles.length > 0) {
         this.articleList = this.articleList.concat(result.articles);
+        if (this.articleList.length > 50) {
+          this.articleList = this.articleList.slice(this.articleList.length - 50);
+        }
         this.articleTotal = result.total;
         this.articlePage++;
         this.articleHasMore = this.articleList.length < result.total;
@@ -250,6 +256,9 @@ export struct UserDetailPage {
         let result = await getUserFollowings(this.pageParam.mid, this.sheetPage, 50);
         let userList = result.users;
         this.sheetContents = this.sheetContents.concat(userList);
+        if (this.sheetContents.length > 50) {
+          this.sheetContents = this.sheetContents.slice(this.sheetContents.length - 50);
+        }
         this.sheetHasMore = this.sheetContents.length < result.total;
         this.sheetPage++;
         console.info('[UserDetailPage] 关注翻页 ' + (this.sheetPage - 1) +
@@ -258,6 +267,9 @@ export struct UserDetailPage {
         let result = await getUserFans(this.pageParam.mid, this.sheetPage, 50);
         let userList = result.users;
         this.sheetContents = this.sheetContents.concat(userList);
+        if (this.sheetContents.length > 50) {
+          this.sheetContents = this.sheetContents.slice(this.sheetContents.length - 50);
+        }
         this.sheetHasMore = this.sheetContents.length < result.total;
         this.sheetPage++;
         console.info('[UserDetailPage] 粉丝翻页 ' + (this.sheetPage - 1) +

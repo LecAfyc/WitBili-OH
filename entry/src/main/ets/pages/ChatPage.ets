@@ -198,26 +198,25 @@ export struct ChatPage {
   @Builder
   TextMessage(msg: PrivateMessage) {
     Row() {
-      Column() {
-        Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Start }) {
-          ForEach(this.parseMessage(msg), (s: Seg) => {
-            if (s.kind === SegKind.TEXT) {
-              Text(s.text)
-                .fontSize(13)
-                .fontColor('#EEEEEE')
-                .textAlign(TextAlign.Start)
-            } else if (s.kind === SegKind.EMOJI) {
-              Image(s.emojiUrl!)
-                .width(s.emojiSize || 22)
-                .height(s.emojiSize || 22)
-                .objectFit(ImageFit.Contain)
-                .margin({ left: 1, right: 1 })
-            }
-          })
-        }
-        .padding({ left: 10, right: 10, top: 8, bottom: 8 })
-        .constraintSize({ maxWidth: '75%' })
+      Text() {
+        ForEach(this.parseMessage(msg), (s: Seg) => {
+          if (s.kind === SegKind.TEXT) {
+            Span(s.text)
+              .fontSize(13)
+              .fontColor('#EEEEEE')
+          } else if (s.kind === SegKind.EMOJI) {
+            ImageSpan(s.emojiUrl!)
+              .width(s.emojiSize || 22)
+              .height(s.emojiSize || 22)
+              .objectFit(ImageFit.Contain)
+          }
+        })
       }
+      .fontSize(13)
+      .fontColor('#EEEEEE')
+      .textAlign(TextAlign.Start)
+      .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+      .constraintSize({ maxWidth: '75%' })
       .borderRadius(10)
       .backgroundColor(msg.senderUid === this.myUid ? '#FB7299' : 'rgba(22,22,22,0.9)')
     }

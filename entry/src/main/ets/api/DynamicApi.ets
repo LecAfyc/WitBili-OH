@@ -35,6 +35,41 @@ export interface DynamicListResult {
   updateBaseline: string;
 }
 
+/**
+ * 将字符串按固定字符数分割成多行
+ * @param content 原始字符串
+ * @param lineLength 每行字符数，默认4000
+ * @returns 分割后的字符串数组
+ */
+export function splitStringToLines(content: string, lineLength: number = 4000): string[] {
+  if (!content || content.length === 0) {
+    return [];
+  }
+
+  const lines: string[] = [];
+  let startIndex = 0;
+
+  while (startIndex < content.length) {
+    const endIndex = Math.min(startIndex + lineLength, content.length);
+    lines.push(content.substring(startIndex, endIndex));
+    startIndex = endIndex;
+  }
+
+  return lines;
+}
+
+/**
+ * 将字符串按固定字符数分割并逐行打印
+ * @param content 原始字符串
+ * @param lineLength 每行字符数，默认4000
+ */
+export function printStringByLines(content: string, lineLength: number = 4000): void {
+  const lines = splitStringToLines(content, lineLength);
+  lines.forEach((line, index) => {
+    console.info(`[Line ${index + 1}/${lines.length}] ${line}`);
+  });
+}
+
 // ==================== 1. 获取动态列表（首页） ====================
 
 /**
@@ -64,7 +99,7 @@ export async function getDynamicFeed(
     const emptyResult: DynamicListResult = { list: [], offset: '', updateBaseline: '' };
     return emptyResult;
   }
-
+  printStringByLines("[Dynamics] content=" + JSON.stringify(resp.data));
   return parseDynamicList(resp.data as Record<string, Object>);
 }
 
@@ -130,12 +165,47 @@ export async function getUserDynamic(
  * @returns  动态对象，失败返回 null
  */
 export async function getDynamicDetail(id: number): Promise<Dynamic | null> {
-  const url: string = DYNAMIC_API_BASE + '/detail?id=' + id;
+  let url: string = DYNAMIC_API_BASE + '/detail?id=' + id
+    + '&timezone_offset=-480';
+  url = await signWBI(url);
   console.info('[DynamicApi] getDynamicDetail url=' + url);
 
   const resp: ApiResponse = await httpGet(url);
   if (resp.code !== 0 || !resp.data) {
     console.error('[DynamicApi] getDynamicDetail fail: code=' + resp.code + ' msg=' + resp.message);
+    return null;
+  }
+
+  const data = resp.data as Record<string, Object>;
+  const item = data['item'] as Record<string, Object> | undefined;
+  if (!item) {
+    return null;
+  }
+
+  return parseDynamicItem(item);
+}
+
+// ==================== 3b. 获取转发动态中的原动态信息 ====================
+
+/**
+ * 获取转发动态中被转发的原动态完整信息
+ *
+ * GET https://api.bilibili.com/x/polymer/web-dynamic/v1/detail/forward/item
+ *
+ * 当 orig 嵌套对象中 comment_id_str 为空时，使用此接口补全
+ *
+ * @param id 被转发的原动态 ID
+ * @returns  动态对象，失败返回 null
+ */
+export async function getForwardItem(id: number): Promise<Dynamic | null> {
+  let url: string = DYNAMIC_API_BASE + '/detail/forward/item?id=' + id
+    + '&timezone_offset=-480';
+  url = await signWBI(url);
+  console.info('[DynamicApi] getForwardItem url=' + url);
+
+  const resp: ApiResponse = await httpGet(url);
+  if (resp.code !== 0 || !resp.data) {
+    console.error('[DynamicApi] getForwardItem fail: code=' + resp.code + ' msg=' + resp.message);
     return null;
   }
 
@@ -257,6 +327,14 @@ function parseDynamicItem(item: Record<string, Object>): Dynamic {
       dyn.comment_id = Number(cidStr);
     }
     dyn.comment_type = (basic['comment_type'] as number) ?? 0;
+  }
+
+  // 回退：orig 嵌套时 API 省略 comment_id_str / comment_type
+  if (dyn.comment_id === 0 && dyn.comment_type === 0) {
+    if (dyn.type === 'DYNAMIC_TYPE_FORWARD') {
+      dyn.comment_id = dyn.dynamicId;
+      dyn.comment_type = 17;
+    }
   }
 
   // --- 不存在动态 ---

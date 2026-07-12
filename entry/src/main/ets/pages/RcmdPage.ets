@@ -150,6 +150,9 @@ export struct RcmdPage {
         this.firstLoad = false;
       } else {
         this.videoList = this.videoList.concat(result.items);
+        if (this.videoList.length > 50) {
+          this.videoList = this.videoList.slice(this.videoList.length - 50);
+        }
       }
       this.hasMore = result.items.length > 0;
       if (this.videoList.length === 0) {

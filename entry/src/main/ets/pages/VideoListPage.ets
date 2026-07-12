@@ -193,6 +193,11 @@ export struct VideoListPage {
             this.loadMore();
           }
         })
+        .onReachStart(() => {
+          if (this.sourceType === 'collection' && this.videoList.length >= 50) {
+            this.loadInitial();
+          }
+        })
         .edgeEffect(EdgeEffect.Spring)
         .focusable(true)
         .focusOnTouch(true)
@@ -236,6 +241,9 @@ export struct VideoListPage {
       if (this.isCollection() && this.mlid > 0) {
         let result = await getFavResourceList(this.mlid, 1, 20);
         this.videoList = result.videos;
+        if (this.videoList.length > 50) {
+          this.videoList = this.videoList.slice(this.videoList.length - 50);
+        }
         this.hasMore = result.hasMore;
         if (this.videoList.length === 0) {
           this.errorMessage = '收藏夹空空如也';
@@ -243,6 +251,9 @@ export struct VideoListPage {
       } else if (this.isHistory()) {
         let result = await getHistoryList(0, 0, 20);
         this.videoList = result.items;
+        if (this.videoList.length > 50) {
+          this.videoList = this.videoList.slice(this.videoList.length - 50);
+        }
         this.hasMore = result.hasMore;
         this.historyCursorMax = result.cursor.max;
         this.historyCursorViewAt = result.cursor.viewAt;
@@ -283,6 +294,9 @@ export struct VideoListPage {
         let nextPage: number = this.currentPage + 1;
         let result = await getFavResourceList(this.mlid, nextPage, 20);
         this.videoList = this.videoList.concat(result.videos);
+        if (this.videoList.length > 50) {
+          this.videoList = this.videoList.slice(this.videoList.length - 50);
+        }
         this.hasMore = result.hasMore;
         this.currentPage = nextPage;
       } else if (this.isHistory()) {
@@ -292,6 +306,9 @@ export struct VideoListPage {
           20
         );
         this.videoList = this.videoList.concat(result.items);
+        if (this.videoList.length > 50) {
+          this.videoList = this.videoList.slice(this.videoList.length - 50);
+        }
         this.hasMore = result.hasMore;
         this.historyCursorMax = result.cursor.max;
         this.historyCursorViewAt = result.cursor.viewAt;

@@ -32,6 +32,9 @@ export struct SearchResultPage {
     let newResults: VideoCard[] = await searchVideos(this.keyword, this.currentVideoPage);
     if (newResults.length > 0) {
       this.videoResults = this.videoResults.concat(newResults);
+      if (this.videoResults.length > 50) {
+        this.videoResults = this.videoResults.slice(this.videoResults.length - 50);
+      }
       this.currentVideoPage++;
       if (newResults.length < 20) {
         this.videoHasMore = false;
@@ -50,6 +53,9 @@ export struct SearchResultPage {
     let newResults: ArticleCard[] = await searchArticles(this.keyword, this.currentArticlePage);
     if (newResults.length > 0) {
       this.articleResults = this.articleResults.concat(newResults);
+      if (this.articleResults.length > 50) {
+        this.articleResults = this.articleResults.slice(this.articleResults.length - 50);
+      }
       this.currentArticlePage++;
       if (newResults.length < 20) {
         this.articleHasMore = false;
@@ -68,6 +74,9 @@ export struct SearchResultPage {
     let newResults: UserCard[] = await searchUsers(this.keyword, this.currentUserPage);
     if (newResults.length > 0) {
       this.userResults = this.userResults.concat(newResults);
+      if (this.userResults.length > 50) {
+        this.userResults = this.userResults.slice(this.userResults.length - 50);
+      }
       this.currentUserPage++;
       if (newResults.length < 20) {
         this.userHasMore = false;

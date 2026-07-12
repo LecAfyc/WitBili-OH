@@ -14,7 +14,8 @@ import {
   OnCompletionListener,
   OnVideoSizeChangedListener,
   OnBufferingUpdateListener,
-  OnSeekCompleteListener
+  OnSeekCompleteListener,
+  OnInfoListener
 } from '@ohos/ijkplayer';
 import { common } from '@kit.AbilityKit';
 import { VideoCard } from '../model/ContentCard';
@@ -25,6 +26,7 @@ import { getCookieString } from '../api/CookiesApi';
 import { HEADERS } from '../api/CommonApi';
 import { BarrageView, BarrageController, BarrageItem, BarrageOption } from '@esky/barrage';
 import { getDanmakuItems, DanmakuData, createBarrageItem } from '../api/DanmakuApi';
+import { VideoQuality } from '../api/VideoDetailApi';
 import batteryInfo from '@ohos.batteryInfo';
 import vibrator from '@ohos.vibrator';
 import { audio as harmoniousAudio } from '@kit.AudioKit';
@@ -64,13 +66,16 @@ export struct VideoPlayerPage {
   @State currentProgress: number = 0;
   @State isSeeking: boolean = false;
   @State isSeekLoading: boolean = false;
+  @State isBuffering: boolean = false;
   @State totalDuration: number = 0;
   @State wasPlayingBeforeSheet: boolean = false;
-  @State danmakuEnabled: boolean = true;
+  @State danmakuEnabled: boolean = false;
   @State currentVolume: number = 0.8;
   @State currentBrightness: number = 0.5;
   @State batteryLevel: number = 100;
   @State currentTimeDisplay: string = '';
+  @State availableQualities: VideoQuality[] = [];
+  @State currentQnName: string = '';
   // ===== 视频尺寸 =====
   @State private videoWidth: number = 16;
   @State private videoHeight: number = 9;
@@ -124,7 +129,7 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer.start();
     } catch (_e) { /* ignore */
     }
-    if (this.isDashStream && this.audioRenderer) {
+    if (this.isDashStream && this.audioRenderer && !this.isBuffering) {
       if (seekMs !== undefined) {
         this.audioRenderer.seekTo(seekMs);
       }
@@ -218,6 +223,20 @@ export struct VideoPlayerPage {
               .width(this.baseWidth * this.curScale)
               .height(this.baseHeight * this.curScale)
               .translate({ x: this.curOffsetX, y: this.curOffsetY })
+
+            if (this.isBuffering) {
+              Column() {
+                LoadingProgress().width(40).height(40).color(Color.White)
+                Text('加载中')
+                  .fontSize(12)
+                  .fontColor(Color.White)
+                  .margin({ top: 8 })
+              }
+              .justifyContent(FlexAlign.Center)
+              .backgroundColor('rgba(0,0,0,0.3)')
+              .borderRadius(12)
+              .padding(16)
+            }
 
             if (this.stateText) {
               Row() {
@@ -412,7 +431,7 @@ export struct VideoPlayerPage {
           this.hideControls();
         })
         .visibility(this.showControls ? Visibility.Visible : Visibility.Hidden)
-        .animation({ duration: 550, curve: Curve.Friction })
+        .animation({ duration: 300, curve: Curve.EaseOut })
       }
       .width('100%')
       .height('100%')
@@ -681,6 +700,39 @@ export struct VideoPlayerPage {
           .borderRadius(12)
         }
 
+        // ── 2b. 清晰度选择 ──
+        ListItem() {
+          Column({ space: 8 }) {
+            Text('清晰度').fontSize(15).fontColor('#CCCCCC').width('100%')
+            if (this.availableQualities.length > 0) {
+              Flex({ wrap: FlexWrap.Wrap }) {
+                ForEach(this.availableQualities, (item: VideoQuality) => {
+                  Button(item.name)
+                    .fontSize(12)
+                    .fontColor(item.qn === this.qn ? Color.White : '#CCCCCC')
+                    .backgroundColor(
+                      item.qn === this.qn ? '#FF69B4' : '#333333'
+                    )
+                    .borderRadius(16)
+                    .height(32)
+                    .padding({ left: 14, right: 14 })
+                    .margin(1)
+                    .onClick(() => {
+                      this.switchQuality(item.qn);
+                    })
+                }, (item: VideoQuality) => String(item.qn))
+              }
+              .width('100%')
+            } else {
+              Text('加载中...').fontSize(12).fontColor('#888888')
+            }
+          }
+          .width('100%')
+          .padding({ top: 10, bottom: 10, left: 8, right: 8 })
+          .backgroundColor('#bf2c2c2e')
+          .borderRadius(12)
+        }
+
         // ── 3. 信息显示（时间 + 电量） ──
         ListItem() {
           Row() {
@@ -824,6 +876,22 @@ export struct VideoPlayerPage {
       this.audioUrl = result.audioUrl;
       this.isDashStream = result.isDash;
 
+      let qualities: VideoQuality[] = [];
+      for (let i = 0; i < result.acceptDescription.length; i++) {
+        qualities.push({
+          name: result.acceptDescription[i],
+          qn: result.acceptQuality[i] || 0
+        });
+      }
+      this.availableQualities = qualities;
+      this.currentQnName = '';
+      for (let i = 0; i < qualities.length; i++) {
+        if (qualities[i].qn === this.qn) {
+          this.currentQnName = qualities[i].name;
+          break;
+        }
+      }
+
       if (this.isDashStream && this.audioUrl) {
         this.startAudioRendering();
       }
@@ -831,6 +899,50 @@ export struct VideoPlayerPage {
       this.isLoading = false;
     } catch (e) {
       this.errorMsg = '获取播放地址失败: ' + (e instanceof Error ? e.message : String(e));
+      this.isLoading = false;
+    }
+  }
+
+  private async switchQuality(newQn: number): Promise<void> {
+    if (newQn === this.qn) {
+      return;
+    }
+    let posMs: number = this.getCurrentPosition();
+    this.qn = newQn;
+    for (let i = 0; i < this.availableQualities.length; i++) {
+      if (this.availableQualities[i].qn === newQn) {
+        this.currentQnName = this.availableQualities[i].name;
+        break;
+      }
+    }
+    this.resetPlayer();
+    this.releaseAudio();
+    this.stopDanmakuTimer();
+    this.stopSyncTimer();
+    this.isLoading = true;
+    this.errorMsg = '';
+    try {
+      let result: DashPlayUrlResult = await getDashPlayUrl(this.videoCard!.bvid, this.cid, this.qn);
+      if (!result.videoUrl) {
+        throw new Error('videoUrl 为空');
+      }
+      this.videoUrl = result.videoUrl;
+      this.audioUrl = result.audioUrl;
+      this.isDashStream = result.isDash;
+      this.isLoading = false;
+      if (this.isDashStream && this.audioUrl) {
+        this.startAudioRendering();
+      }
+      if (this.mContext) {
+        this.startPlay();
+      }
+      if (posMs > 0) {
+        setTimeout(() => {
+          this.seekTo(posMs);
+        }, 1500);
+      }
+    } catch (e) {
+      this.errorMsg = '切换清晰度失败: ' + (e instanceof Error ? e.message : String(e));
       this.isLoading = false;
     }
   }
@@ -881,7 +993,7 @@ export struct VideoPlayerPage {
 
   private startSyncTimer(): void {
     this.stopSyncTimer();
-    this.syncTimerId = setInterval(() => this.syncAudioWithVideo(), 1500);
+    this.syncTimerId = setInterval(() => this.syncAudioWithVideo(), 2000);
   }
 
   // ===================================================================
@@ -899,12 +1011,49 @@ export struct VideoPlayerPage {
   //  UI 控制按钮
   // ===================================================================
 
+  private handleBufferingStart(): void {
+    this.isBuffering = true;
+    this.barrageController.pause();
+    if (this.isDashStream && this.audioRenderer) {
+      let audioState: AudioRenderState = this.audioRenderer.getState();
+      if (audioState === AudioRenderState.PLAYING) {
+        this.audioRenderer.pause();
+      }
+    }
+  }
+
+  private handleBufferingEnd(): void {
+    this.isBuffering = false;
+    if (this.danmakuEnabled && this.isPlaying) {
+      this.barrageController.start();
+    }
+    if (this.isDashStream && this.audioRenderer && this.isPlaying) {
+      let audioState: AudioRenderState = this.audioRenderer.getState();
+      if (audioState === AudioRenderState.PAUSED) {
+        let videoPosMs: number = this.getVideoPosition();
+        if (videoPosMs > 0) {
+          this.audioRenderer.seekTo(videoPosMs);
+          setTimeout(() => {
+            if (this.isPlaying && !this.isBuffering && this.audioRenderer) {
+              this.audioRenderer.play();
+            }
+          }, 200);
+        } else {
+          this.audioRenderer.play();
+        }
+      }
+    }
+  }
+
   private syncAudioWithVideo(): void {
     if (!this.audioRenderer) {
       return;
     }
     let audioState: AudioRenderState = this.audioRenderer.getState();
     if (audioState === AudioRenderState.ERROR || audioState === AudioRenderState.RELEASED) {
+      return;
+    }
+    if (this.isBuffering) {
       return;
     }
 
@@ -1031,13 +1180,14 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '1');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-auto-rotate', '1');
       this.mIjkMediaPlayer.setOption('4', 'mediacodec-handle-resolution-change', '1');
-      this.mIjkMediaPlayer.setOption('4', 'enable-accurate-seek', '1');
+      this.mIjkMediaPlayer.setOption('4', 'enable-accurate-seek', '0');
       this.mIjkMediaPlayer.setOption('4', 'packet-buffering', '1');
-      this.mIjkMediaPlayer.setOption('4', 'max-buffer-size', '102400');
-      this.mIjkMediaPlayer.setOption('4', 'min-frames', '100');
-      this.mIjkMediaPlayer.setOption('4', 'framedrop', '5');
+      this.mIjkMediaPlayer.setOption('4', 'max-buffer-size', '15728640');
+      this.mIjkMediaPlayer.setOption('4', 'min-frames', '25');
+      this.mIjkMediaPlayer.setOption('4', 'framedrop', '1');
+      this.mIjkMediaPlayer.setOption('4', 'max-fps', '30');
       this.mIjkMediaPlayer.setOption('4', 'sync-av-start', '1');
-      this.mIjkMediaPlayer.setOption('4', 'infbuf', '1');
+      this.mIjkMediaPlayer.setOption('4', 'infbuf', '0');
       this.mIjkMediaPlayer.setOption('1', 'timeout', '15000000');
       this.mIjkMediaPlayer.setOption('1', 'connect_timeout', '15000000');
       this.mIjkMediaPlayer.setOption('1', 'addrinfo_timeout', '15000000');
@@ -1095,6 +1245,16 @@ export struct VideoPlayerPage {
         onBufferingUpdate: (_percent: number) => {
         }
       } as OnBufferingUpdateListener);
+
+      this.mIjkMediaPlayer.setOnInfoListener({
+        onInfo: (what: number, _extra: number) => {
+          if (what === 701) {
+            this.handleBufferingStart();
+          } else if (what === 702) {
+            this.handleBufferingEnd();
+          }
+        }
+      } as OnInfoListener);
 
       this.mIjkMediaPlayer.setMessageListener(); //不加这行就会SIGSEGV！！！！别问我怎么知道的，Debug了一整天😇
 
@@ -1177,6 +1337,11 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer?.release();
     } catch (_e) { /* ignore */
     }
+  }
+
+  private resetPlayer(): void {
+    this.releasePlayer();
+    this.mIjkMediaPlayer = IjkMediaPlayer.getInstance();
   }
 
   private calcBaseSize(): void {
