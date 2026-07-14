@@ -21,9 +21,7 @@ import { common } from '@kit.AbilityKit';
 import { VideoCard } from '../model/ContentCard';
 import { getDashPlayUrl, DashPlayUrlResult } from '../api/VideoStreamApi';
 import { reportWatchProgress } from '../api/HistoryApi';
-import { DashAudioRenderer, AudioRenderState } from '../api/DashAudioRenderer';
-import { getCookieString } from '../api/CookiesApi';
-import { HEADERS } from '../api/CommonApi';
+import { DashAudioRenderer, AudioRenderState } from '../utils/DashAudioRenderer';
 import { BarrageView, BarrageController, BarrageItem, BarrageOption } from '@esky/barrage';
 import { getDanmakuItems, DanmakuData, createBarrageItem } from '../api/DanmakuApi';
 import { VideoQuality } from '../api/VideoDetailApi';
@@ -31,6 +29,9 @@ import batteryInfo from '@ohos.batteryInfo';
 import vibrator from '@ohos.vibrator';
 import { audio as harmoniousAudio } from '@kit.AudioKit';
 import { LengthMetrics, window } from '@kit.ArkUI';
+import { applyDefaultPlayerOptions, setupPlayerHeaders } from '../utils/VideoPlayerUtils';
+import { VideoPlayerControls } from '../components/VideoPlayerControls';
+import { VideoPlayerMoreSheetContent } from '../components/VideoPlayerMoreSheetContent';
 
 @Component
 export struct VideoPlayerPage {
@@ -68,6 +69,11 @@ export struct VideoPlayerPage {
   @State isSeeking: boolean = false;
   @State isSeekLoading: boolean = false;
   @State isBuffering: boolean = false;
+  @State isReconnecting: boolean = false;
+  @State retryCount: number = 0;
+  @State hasPlaybackStarted: boolean = false;
+  private savedPositionOnError: number = 0;
+  private readonly MAX_RETRY: number = 3;
   @State totalDuration: number = 0;
   @State wasPlayingBeforeSheet: boolean = false;
   @State danmakuEnabled: boolean = false;
@@ -224,7 +230,19 @@ export struct VideoPlayerPage {
               .height(this.baseHeight * this.curScale)
               .translate({ x: this.curOffsetX, y: this.curOffsetY })
 
-            if (this.isBuffering) {
+            if (this.isReconnecting) {
+              Column() {
+                LoadingProgress().width(40).height(40).color(Color.White)
+                Text('正在重连 (' + this.retryCount + '/' + this.MAX_RETRY + ')')
+                  .fontSize(12)
+                  .fontColor(Color.White)
+                  .margin({ top: 8 })
+              }
+              .justifyContent(FlexAlign.Center)
+              .backgroundColor('rgba(0,0,0,0.3)')
+              .borderRadius(12)
+              .padding(16)
+            } else if (this.isBuffering) {
               Column() {
                 LoadingProgress().width(40).height(40).color(Color.White)
                 Text('加载中')
@@ -327,114 +345,32 @@ export struct VideoPlayerPage {
           this.onDigitalCrownAction(event);
         })
 
-        // ── Controls 覆盖层（点击任意位置显示 5 秒后自动隐藏） ──
-        Column() {
-          // 顶部：返回按钮（左）
-          Row() {
-            Button() {
-              Text('←').fontSize(22).fontColor(Color.White)
-            }
-            .width(44)
-            .height(44)
-            .backgroundColor('rgba(0,0,0,0.45)')
-            .borderRadius(22)
-            .onClick(() => {
-              this.clearControlsTimer();
-              this.pageStack.pop();
-            })
-
-            Blank()
+        // ── Controls 覆盖层 ──
+        VideoPlayerControls({
+          isPlaying: this.isPlaying,
+          danmakuEnabled: this.danmakuEnabled,
+          onBack: (): void => {
+            this.clearControlsTimer();
+            this.pageStack.pop();
+          },
+          onMore: (): void => {
+            this.clearControlsTimer();
+            this.openMoreSheet();
+          },
+          onToggleDanmaku: (): void => {
+            this.toggleDanmaku();
+          },
+          onTogglePlayPause: (): void => {
+            this.togglePlayPause();
+            this.clearControlsTimer();
+            this.showControlsWithTimer();
+          },
+          onHideControls: (): void => {
+            this.hideControls();
           }
-          .width('100%')
-          .padding({ left: 16, top: 56 })
-
-          Blank()
-
-          // 中间行：左侧「更多」+ 右侧「弹幕」
-          Row() {
-            // 更多按钮
-            Button() {
-              Column() {
-                Text("∷")
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor(Color.White)
-                Text("更多")
-                  .fontSize(7)
-                  .fontColor(Color.White)
-                  .margin({ top: 8 })
-              }
-            }
-            .width(56)
-            .height(56)
-            .backgroundColor('rgba(0,0,0,0.45)')
-            .borderRadius(28)
-            .onClick(() => {
-              this.clearControlsTimer();
-              this.openMoreSheet();
-            })
-
-            Blank()
-
-            // 弹幕开关
-            Button() {
-              Column() {
-                SymbolGlyph($r("sys.symbol.sort"))
-                  .fontSize(14)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor([this.danmakuEnabled ? '#FF69B4' : Color.White])
-                Text(this.danmakuEnabled ? '弹幕开' : '弹幕关')
-                  .fontSize(7)
-                  .fontColor(this.danmakuEnabled ? '#FF69B4' : Color.White)
-                  .margin({ top: 8 })
-              }
-            }
-            .width(56)
-            .height(56)
-            .backgroundColor(
-              this.danmakuEnabled ? 'rgba(255,105,180,0.30)' : 'rgba(0,0,0,0.45)'
-            )
-            .borderRadius(28)
-            .onClick(() => {
-              this.toggleDanmaku();
-            })
-          }
-          .width('100%')
-          .padding({ left: 24, right: 24 })
-
-          Blank()
-
-          // 底部：暂停 / 继续
-          Row() {
-            Blank()
-            Button() {
-              SymbolGlyph(
-                this.isPlaying ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_circle_fill"))
-                .fontSize(20).fontColor([Color.White])
-            }
-            .width(64)
-            .height(64)
-            .backgroundColor('rgba(0,0,0,0.45)')
-            .borderRadius(32)
-            .onClick(() => {
-              this.togglePlayPause();
-              this.clearControlsTimer();
-              this.showControlsWithTimer();
-            })
-
-            Blank()
-          }
-          .width('100%')
-          .padding({ bottom: 56 })
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0,0,0,0.30)')
-        .onClick(() => {
-          this.hideControls();
         })
-        .visibility(this.showControls ? Visibility.Visible : Visibility.Hidden)
-        .animation({ duration: 300, curve: Curve.EaseOut })
+          .visibility(this.showControls ? Visibility.Visible : Visibility.Hidden)
+          .animation({ duration: 300, curve: Curve.EaseOut })
       }
       .width('100%')
       .height('100%')
@@ -598,272 +534,58 @@ export struct VideoPlayerPage {
 
   @Builder
   MoreSheet() {
-    Column() {
-      List({ space: 14 }) {
-        ListItem(){
-          Column().height('4%')
+    VideoPlayerMoreSheetContent({
+      currentProgress: this.currentProgress,
+      totalDuration: this.totalDuration,
+      isSeekLoading: this.isSeekLoading,
+      currentSpeed: this.currentSpeed,
+      currentVolume: this.currentVolume,
+      currentBrightness: this.currentBrightness,
+      availableQualities: this.availableQualities,
+      currentQn: this.qn,
+      currentTimeDisplay: this.currentTimeDisplay,
+      batteryLevel: this.batteryLevel,
+      onSeekStart: (): void => {
+        this.isSeeking = true;
+      },
+      onSeek: (value: number): void => {
+        this.isSeeking = false;
+        this.isSeekLoading = true;
+        this.seekTo(value);
+      },
+      onSpeedChange: (speed: number): void => {
+        this.currentSpeed = speed;
+        this.setSpeed(speed);
+      },
+      onVolumeChange: (value: number): void => {
+        this.currentVolume = value;
+        try {
+          let audioManager = harmoniousAudio.getAudioManager();
+          audioManager.setVolume(
+            harmoniousAudio.AudioVolumeType.MEDIA,
+            Math.round(value * 15),
+            (_err: Error) => {
+            }
+          );
+        } catch (_e) { /* ignore */
         }
-        // ── 1. 进度调整 ──
-        ListItem() {
-          Column({ space: 2 }) {
-            Row() {
-              Text(this.formatTime(this.currentProgress) + " / " + this.formatTime(this.totalDuration))
-                .fontSize(13).fontColor(Color.White).textAlign(TextAlign.Start)
-            }
-            .width('100%')
-            .justifyContent(FlexAlign.Center)
-
-            Stack() {
-              Row() {
-                Slider({
-                  value: this.currentProgress,
-                  min: 0,
-                  max: this.totalDuration > 0 ? this.totalDuration : 1,
-                  step: 100,
-                  style: SliderStyle.OutSet
-                })
-                  .trackColor('#555555')
-                  .selectedColor('#FF69B4')
-                  .blockColor(Color.White)
-                  .layoutWeight(1)
-                  .onChange((value: number, mode: SliderChangeMode) => {
-                    this.currentProgress = value;
-                    if (mode === SliderChangeMode.Moving) {
-                      this.isSeeking = true;
-                    } else {
-                      this.isSeeking = false;
-                      this.isSeekLoading = true;
-                      this.seekTo(value);
-                    }
-                  })
-              }
-              .width('100%')
-
-              if (this.isSeekLoading) {
-                Row({ space: 6 }) {
-                  LoadingProgress().width(14).height(14).color(Color.White)
-                  Text('跳转中...').fontSize(11).fontColor('#AAAAAA')
-                }
-                .backgroundColor('rgba(0,0,0,0.6)')
-                .borderRadius(8)
-                .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-                .justifyContent(FlexAlign.Center)
-              }
-            }
-            .width('100%')
-            .alignContent(Alignment.Center)
+      },
+      onBrightnessChange: (value: number): void => {
+        this.currentBrightness = value;
+        try {
+          let uiContext = AppStorage.get<common.UIAbilityContext>('UiAbilityContext');
+          if (uiContext) {
+            window.getLastWindow(uiContext).then((win: window.Window) => {
+              win.setWindowBrightness(value);
+            });
           }
-          .width('100%')
-          .padding({
-            top: 10,
-            bottom: 10,
-            left: 8,
-            right: 8
-          })
-          .backgroundColor('#bf2c2c2e')
-          .borderRadius(12)
+        } catch (_e) { /* ignore */
         }
-
-        // ── 2. 倍速调整 ──
-        ListItem() {
-          Column({ space: 8 }) {
-            Text('播放倍速').fontSize(15).fontColor('#CCCCCC').width('100%')
-            Flex({ wrap: FlexWrap.Wrap }) {
-              ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0], (speed: number) => {
-                Button(speed + 'x')
-                  .fontSize(12)
-                  .fontColor(speed === this.currentSpeed ? Color.White : '#CCCCCC')
-                  .backgroundColor(
-                    speed === this.currentSpeed ? '#FF69B4' : '#333333'
-                  )
-                  .borderRadius(16)
-                  .height(32)
-                  .padding({ left: 14, right: 14 })
-                  .margin(1)
-                  .onClick(() => {
-                    this.currentSpeed = speed;
-                    this.setSpeed(speed);
-                  })
-              })
-            }
-            .width('100%')
-          }
-          .width('100%')
-          .padding({
-            top: 10,
-            bottom: 10,
-            left: 8,
-            right: 8
-          })
-          .backgroundColor('#bf2c2c2e')
-          .borderRadius(12)
-        }
-
-        // ── 3. 音量 + 亮度调节 ──
-        ListItem() {
-          Column({ space: 12 }) {
-            // 音量
-            Row({ space: 12 }) {
-              SymbolGlyph($r("sys.symbol.speaker_wave_2"))
-                .fontSize(18)
-                .fontColor(['#AAAAAA'])
-              Slider({
-                value: this.currentVolume * 100,
-                min: 0,
-                max: 100,
-                step: 1,
-                style: SliderStyle.OutSet
-              })
-                .trackColor('#555555')
-                .selectedColor('#FF69B4')
-                .blockColor(Color.White)
-                .layoutWeight(1)
-                .onChange((value: number) => {
-                  this.currentVolume = value / 100;
-                  try {
-                    let audioManager = harmoniousAudio.getAudioManager();
-                    audioManager.setVolume(
-                      harmoniousAudio.AudioVolumeType.MEDIA,
-                      Math.round(value / 100 * 15),
-                      (_err: Error) => {
-                      }
-                    );
-                  } catch (_e) { /* ignore */
-                  }
-                })
-              Text(Math.round(this.currentVolume * 100) + '%')
-                .fontSize(12).fontColor('#AAAAAA').width(36).textAlign(TextAlign.End)
-            }
-            .width('100%')
-
-            // 亮度
-            Row({ space: 12 }) {
-              SymbolGlyph($r("sys.symbol.sun_max"))
-                .fontSize(18)
-                .fontColor(['#AAAAAA'])
-              Slider({
-                value: this.currentBrightness * 100,
-                min: 0,
-                max: 100,
-                step: 1,
-                style: SliderStyle.OutSet
-              })
-                .trackColor('#555555')
-                .selectedColor('#FF69B4')
-                .blockColor(Color.White)
-                .layoutWeight(1)
-                .onChange((value: number) => {
-                  this.currentBrightness = value / 100;
-                  try {
-                    let uiContext = AppStorage.get<common.UIAbilityContext>('UiAbilityContext');
-                    if (uiContext) {
-                      window.getLastWindow(uiContext).then((win: window.Window) => {
-                        win.setWindowBrightness(this.currentBrightness);
-                      });
-                    }
-                  } catch (_e) { /* ignore */
-                  }
-                })
-              Text(Math.round(this.currentBrightness * 100) + '%')
-                .fontSize(12).fontColor('#AAAAAA').width(36).textAlign(TextAlign.End)
-            }
-            .width('100%')
-
-
-          }
-          .width('100%')
-          .padding({
-            top: 10,
-            bottom: 10,
-            left: 8,
-            right: 8
-          })
-          .backgroundColor('#bf2c2c2e')
-          .borderRadius(12)
-        }
-
-        // ── 3b. 清晰度选择 ──
-        ListItem() {
-          Column({ space: 8 }) {
-            Text('清晰度').fontSize(15).fontColor('#CCCCCC').width('100%')
-            if (this.availableQualities.length > 0) {
-              Flex({ wrap: FlexWrap.Wrap }) {
-                ForEach(this.availableQualities, (item: VideoQuality) => {
-                  Button(item.name)
-                    .fontSize(12)
-                    .fontColor(item.qn === this.qn ? Color.White : '#CCCCCC')
-                    .backgroundColor(
-                      item.qn === this.qn ? '#FF69B4' : '#333333'
-                    )
-                    .borderRadius(16)
-                    .height(32)
-                    .padding({ left: 14, right: 14 })
-                    .margin(1)
-                    .onClick(() => {
-                      this.switchQuality(item.qn);
-                    })
-                }, (item: VideoQuality) => String(item.qn))
-              }
-              .width('100%')
-            } else {
-              Text('加载中...').fontSize(12).fontColor('#888888')
-            }
-          }
-          .width('100%')
-          .padding({ top: 10, bottom: 10, left: 8, right: 8 })
-          .backgroundColor('#bf2c2c2e')
-          .borderRadius(12)
-        }
-
-        // ── 4. 信息显示（时间 + 电量） ──
-        ListItem() {
-          Row() {
-            Column({ space: 4 }) {
-              Text('当前时间').fontSize(11).fontColor('#888888')
-              Text(this.currentTimeDisplay)
-                .fontSize(22).fontWeight(FontWeight.Bold).fontColor(Color.White)
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-
-            Column({ space: 4 }) {
-              Text('电池电量').fontSize(11).fontColor('#888888')
-              Row({ space: 6 }) {
-                Text(this.batteryLevel >= 0 ? this.batteryLevel + '%' : '--')
-                  .fontSize(22).fontWeight(FontWeight.Bold)
-                  .fontColor(this.batteryLevel > 20 ? Color.White : '#FF4444')
-                if (this.batteryLevel >= 0) {
-                  SymbolGlyph(this.getBatteryIcon(this.batteryLevel))
-                    .fontSize(18)
-                    .fontColor([this.batteryLevel > 20 ? '#34C759' : '#FF4444'])
-                }
-              }
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.End)
-          }
-          .width('100%')
-          .padding(16)
-          .backgroundColor('#bf2c2c2e')
-          .borderRadius(12)
-        }
-
-        ListItem(){
-          Column().height('8%')
-        }
+      },
+      onQualitySwitch: (qn: number): void => {
+        this.switchQuality(qn);
       }
-      .width('100%')
-      .height(LengthMetrics.px(418))
-      .fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(10) })
-      .layoutWeight(1)
-      .scrollBar(BarState.Off)
-      .focusable(true)
-      .focusOnTouch(true)
-      .defaultFocus(this.showMoreSheet)
-    }
-    .width('100%')
-    .height('100%')
-    .padding({ left: 16, right: 16, bottom: 24 })
+    })
   }
 
   private async fetchPlayUrl(): Promise<void> {
@@ -1176,29 +898,26 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer.setContext(this.mContext, this.XCOMPONENT_ID);
       this.mIjkMediaPlayer.native_setup();
 
-      this.mIjkMediaPlayer.setOption('4', 'start-on-prepared', '0');
-      this.mIjkMediaPlayer.setOption('4', 'mediacodec-all-videos', '1');
-      this.mIjkMediaPlayer.setOption('4', 'mediacodec-auto-rotate', '1');
-      this.mIjkMediaPlayer.setOption('4', 'mediacodec-handle-resolution-change', '1');
-      this.mIjkMediaPlayer.setOption('4', 'enable-accurate-seek', '0');
-      this.mIjkMediaPlayer.setOption('4', 'packet-buffering', '1');
-      this.mIjkMediaPlayer.setOption('4', 'max-buffer-size', '15728640');
-      this.mIjkMediaPlayer.setOption('4', 'min-frames', '25');
-      this.mIjkMediaPlayer.setOption('4', 'framedrop', '1');
-      this.mIjkMediaPlayer.setOption('4', 'max-fps', '30');
-      this.mIjkMediaPlayer.setOption('4', 'sync-av-start', '1');
-      this.mIjkMediaPlayer.setOption('4', 'infbuf', '0');
-      this.mIjkMediaPlayer.setOption('1', 'timeout', '15000000');
-      this.mIjkMediaPlayer.setOption('1', 'connect_timeout', '15000000');
-      this.mIjkMediaPlayer.setOption('1', 'addrinfo_timeout', '15000000');
-      this.mIjkMediaPlayer.setOption('1', 'dns_cache_timeout', '15000000');
-      this.mIjkMediaPlayer.setOption('4', "framedrop", "5");
-      this.mIjkMediaPlayer.setOption('4', "soundtouch", "1");
+      applyDefaultPlayerOptions(this.mIjkMediaPlayer);
 
       this.mIjkMediaPlayer.setOnPreparedListener({
         onPrepared: () => {
+          this.isBuffering = false;
+          this.isReconnecting = false;
+          this.hasPlaybackStarted = true;
+          this.retryCount = 0;
           this.totalDuration = this.getDuration();
-          this.resume();
+          if (this.savedPositionOnError > 0) {
+            let pos: number = this.savedPositionOnError;
+            this.savedPositionOnError = 0;
+            this.resume(pos);
+            if (this.isDashStream && this.audioUrl) {
+              this.audioInitStarted = false;
+              this.startAudioRendering();
+            }
+          } else {
+            this.resume();
+          }
           this.barrageReady = true;
           this.startDanmakuTimer();
         }
@@ -1206,10 +925,27 @@ export struct VideoPlayerPage {
 
       this.mIjkMediaPlayer.setOnErrorListener({
         onError: (what: number, extra: number) => {
-          this.errorMsg = '播放失败 (' + what + ',' + extra + ')';
-          this.isPlaying = false;
-          this.stopDanmakuTimer();
-          this.releaseAudio();
+          if (this.hasPlaybackStarted && this.retryCount < this.MAX_RETRY) {
+            this.savedPositionOnError = this.getVideoPosition();
+            this.retryCount++;
+            this.isReconnecting = true;
+            this.isBuffering = false;
+            this.isPlaying = false;
+            this.stopDanmakuTimer();
+            this.releasePlayer();
+            this.releaseAudio();
+            setTimeout(() => {
+              if (this.mContext !== undefined) {
+                this.retryPlay();
+              }
+            }, 1500);
+          } else {
+            this.errorMsg = '播放失败 (' + what + ',' + extra + ')';
+            this.isPlaying = false;
+            this.isReconnecting = false;
+            this.stopDanmakuTimer();
+            this.releaseAudio();
+          }
         }
       } as OnErrorListener);
 
@@ -1260,19 +996,10 @@ export struct VideoPlayerPage {
 
       this.mIjkMediaPlayer.setMessageListener(); //不加这行就会SIGSEGV！！！！别问我怎么知道的，Debug了一整天😇
 
-      let cookieStr: string = getCookieString();
-      let headers: Map<string, string> = new Map([
-        ['user_agent', HEADERS['User-Agent']],
-        ['origin', HEADERS['Origin']],
-        ['referer', HEADERS['Referer']],
-        ['cookies', cookieStr]
-      ]);
-      this.mIjkMediaPlayer.setDataSourceHeader(headers);
-      this.mIjkMediaPlayer.setOption('1', 'user-agent', HEADERS['User-Agent']);
-      this.mIjkMediaPlayer.setOption('1', 'referer', HEADERS['Referer']);
-      this.mIjkMediaPlayer.setOption('1', 'cookies', cookieStr);
+      setupPlayerHeaders(this.mIjkMediaPlayer);
       this.mIjkMediaPlayer.setDataSource(this.videoUrl);
 
+      this.isBuffering = true;
       this.mIjkMediaPlayer.prepareAsync();
     } catch (e) {
       this.errorMsg = '播放器初始化失败';
@@ -1339,6 +1066,11 @@ export struct VideoPlayerPage {
       this.mIjkMediaPlayer?.release();
     } catch (_e) { /* ignore */
     }
+  }
+
+  private retryPlay(): void {
+    this.resetPlayer();
+    this.startPlay();
   }
 
   private resetPlayer(): void {
@@ -1447,50 +1179,4 @@ export struct VideoPlayerPage {
     this.setSpeed(this.speedBeforeLongPress);
   }
 
-  private getBatteryIcon(level: number): Resource {
-    if (level <= 5) {
-      return $r('sys.symbol.battery_5percent');
-    }
-    if (level <= 10) {
-      return $r('sys.symbol.battery_10percent');
-    }
-    if (level <= 15) {
-      return $r('sys.symbol.battery_15percent');
-    }
-    if (level <= 20) {
-      return $r('sys.symbol.battery_20percent');
-    }
-    if (level <= 30) {
-      return $r('sys.symbol.battery_30percent');
-    }
-    if (level <= 40) {
-      return $r('sys.symbol.battery_40percent');
-    }
-    if (level <= 50) {
-      return $r('sys.symbol.battery_50percent');
-    }
-    if (level <= 60) {
-      return $r('sys.symbol.battery_60percent');
-    }
-    if (level <= 70) {
-      return $r('sys.symbol.battery_70percent');
-    }
-    if (level <= 80) {
-      return $r('sys.symbol.battery_80percent');
-    }
-    if (level <= 90) {
-      return $r('sys.symbol.battery_90percent');
-    }
-    return $r('sys.symbol.battery_100percent');
-  }
-
-  private formatTime(ms: number): string {
-    if (ms < 0) {
-      ms = 0;
-    }
-    let totalSec: number = Math.floor(ms / 1000);
-    let min: number = Math.floor(totalSec / 60);
-    let sec: number = totalSec % 60;
-    return min.toString().padStart(2, '0') + ':' + sec.toString().padStart(2, '0');
-  }
 }
