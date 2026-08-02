@@ -5,8 +5,8 @@
 
 import { media } from '@kit.MediaKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { getCookieString } from './CookiesApi';
-import { HEADERS } from './CommonApi';
+import { getCookieString } from '../api/CookiesApi';
+import { HEADERS } from '../api/CommonApi';
 
 export enum AudioRenderState {
   IDLE = 'idle',

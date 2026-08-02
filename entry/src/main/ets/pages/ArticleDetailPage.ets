@@ -1,6 +1,6 @@
 import { ArcSwiper } from '@kit.ArkUI';
 import { ArticleDetailComponent } from '../components/ArticleDetailComponent';
-import { CommentSection } from '../components/VideoDetail/CommentSection';
+import { CommentSection } from '../components/CommentSection';
 import { ArticleCard } from '../model/ContentCard';
 
 
@@ -28,7 +28,7 @@ export struct ArticleDetailPage {
       .width('100%')
 
       Row() {
-        Text('󰃚').fontSize(18).fontColor('#FB7299').width(24).textAlign(TextAlign.Center)
+        Text('<').fontSize(18).fontColor('#FB7299').width(24).textAlign(TextAlign.Center)
         Text('返回').fontSize(15).fontColor('#EEEEEE').margin({ left: 4 })
       }
       .width('30%')

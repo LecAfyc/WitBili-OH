@@ -1,8 +1,8 @@
 import { ArcSwiper } from '@kit.ArkUI';
 import { VideoCard } from '../model/ContentCard';
-import { VideoDetailArc } from '../components/VideoDetail/VideoDetail';
-import { VideoRelatedRecommend } from '../components/VideoDetail/VideoRelatedRecommend';
-import { CommentSection } from '../components/VideoDetail/CommentSection';
+import { VideoDetailArc } from '../components/VideoDetail';
+import { VideoRelatedRecommend } from '../components/VideoRelatedRecommend';
+import { CommentSection } from '../components/CommentSection';
 import { bv2av } from '../api/CommonApi';
 
 @Component

@@ -560,8 +560,8 @@ export async function checkLoginStatus(): Promise<LoginCheckStatus> {
     let resp: ApiResponse = await loginHttpGet(url);
 
     console.info("[Login] nav-resp = " + JSON.stringify(resp));
-    if (resp.code !== 0 || !resp.data) {
-      console.warn('[Login] nav 接口异常, code=' + resp.code);
+    if (!resp.data) {
+      console.warn('[Login] nav 接口异常');
       return LoginCheckStatus.ERROR;
     }
 
