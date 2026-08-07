@@ -5,17 +5,21 @@ import { UserCardComponent } from '../components/UserCardComponent';
 import { ArticleCardComponent } from '../components/ArticleCardComponent';
 import { VideoCard, ArticleCard } from '../model/ContentCard';
 import { UserCard } from '../model/UserCard';
+import { BasicDataSource } from '../utils/BasicDataSource';
 
 
 @Component
 export struct SearchResultPage {
   @Consume('pageStack') pageStack: NavPathStack;
   @State keyword: string = "";
-  @State videoResults: VideoCard[] = [];
-  @State userResults: UserCard[] = [];
+  @State videoCount: number = 0;
+  @State articleCount: number = 0;
+  @State userCount: number = 0;
+  private videoDS: BasicDataSource<VideoCard> = new BasicDataSource<VideoCard>();
+  private articleDS: BasicDataSource<ArticleCard> = new BasicDataSource<ArticleCard>();
+  private userDS: BasicDataSource<UserCard> = new BasicDataSource<UserCard>();
   @State videoLoading: boolean = false;
   @State userLoading: boolean = false;
-  @State articleResults: ArticleCard[] = [];
   @State videoHasMore: boolean = true;
   @State articleHasMore: boolean = true;
   @State userHasMore: boolean = true;
@@ -31,10 +35,9 @@ export struct SearchResultPage {
     this.videoLoading = true;
     let newResults: VideoCard[] = await searchVideos(this.keyword, this.currentVideoPage);
     if (newResults.length > 0) {
-      this.videoResults = this.videoResults.concat(newResults);
-      if (this.videoResults.length > 50) {
-        this.videoResults = this.videoResults.slice(this.videoResults.length - 50);
-      }
+      this.videoDS.appendData(newResults);
+      this.videoDS.trimTo(50);
+      this.videoCount = this.videoDS.totalCount();
       this.currentVideoPage++;
       if (newResults.length < 20) {
         this.videoHasMore = false;
@@ -52,10 +55,9 @@ export struct SearchResultPage {
     this.articleLoading = true;
     let newResults: ArticleCard[] = await searchArticles(this.keyword, this.currentArticlePage);
     if (newResults.length > 0) {
-      this.articleResults = this.articleResults.concat(newResults);
-      if (this.articleResults.length > 50) {
-        this.articleResults = this.articleResults.slice(this.articleResults.length - 50);
-      }
+      this.articleDS.appendData(newResults);
+      this.articleDS.trimTo(50);
+      this.articleCount = this.articleDS.totalCount();
       this.currentArticlePage++;
       if (newResults.length < 20) {
         this.articleHasMore = false;
@@ -73,10 +75,9 @@ export struct SearchResultPage {
     this.userLoading = true;
     let newResults: UserCard[] = await searchUsers(this.keyword, this.currentUserPage);
     if (newResults.length > 0) {
-      this.userResults = this.userResults.concat(newResults);
-      if (this.userResults.length > 50) {
-        this.userResults = this.userResults.slice(this.userResults.length - 50);
-      }
+      this.userDS.appendData(newResults);
+      this.userDS.trimTo(50);
+      this.userCount = this.userDS.totalCount();
       this.currentUserPage++;
       if (newResults.length < 20) {
         this.userHasMore = false;
@@ -97,12 +98,12 @@ export struct SearchResultPage {
               Column().height('14%')
             }
 
-            ForEach(this.videoResults, (item: VideoCard) => {
+            LazyForEach(this.videoDS, (item: VideoCard) => {
               ListItem() {
                 VideoCardComponent({ card: item })
               }
               .padding({ left: 14, right: 14 })
-            })
+            }, (item: VideoCard) => item.bvid || item.aid.toString())
             ListItem() {
               Row() {
                 if (this.videoLoading) {
@@ -133,12 +134,12 @@ export struct SearchResultPage {
               Column().height('14%')
             }
 
-            ForEach(this.articleResults, (item: ArticleCard) => {
+            LazyForEach(this.articleDS, (item: ArticleCard) => {
               ListItem() {
                 ArticleCardComponent({ card: item })
               }
               .padding({ left: 14, right: 14 })
-            })
+            }, (item: ArticleCard) => item.cvid.toString())
             ListItem() {
               Row() {
                 if (this.articleLoading) {
@@ -169,12 +170,12 @@ export struct SearchResultPage {
               Column().height('14%')
             }
 
-            ForEach(this.userResults, (item: UserCard) => {
+            LazyForEach(this.userDS, (item: UserCard) => {
               ListItem() {
                 UserCardComponent({ card: item, baseFontSize: 14, extraInfo: item.desc })
               }
               .padding({ left: 14, right: 14 })
-            })
+            }, (item: UserCard) => item.mid.toString())
             ListItem() {
               Row() {
                 if (this.userLoading) {

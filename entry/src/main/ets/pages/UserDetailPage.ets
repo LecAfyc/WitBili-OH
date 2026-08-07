@@ -21,6 +21,7 @@ import { VideoListPageParams } from './VideoListPage';
 import { UserCardComponent } from '../components/UserCardComponent';
 import { formatCount } from '../api/CommonApi';
 import { DynamicSection } from '../components/DynamicSection';
+import { BasicDataSource } from '../utils/BasicDataSource';
 
 @Component
 export struct UserDetailPage {
@@ -45,14 +46,17 @@ export struct UserDetailPage {
     0// opus
   ); //默认构造
   // 投递列表状态 + 翻页状态
-  @State videoList: VideoCard[] = [];
-  @State articleList: ArticleCard[] = [];
+  @State videoCount: number = 0;
+  @State articleCount: number = 0;
+  private videoDS: BasicDataSource<VideoCard> = new BasicDataSource<VideoCard>();
+  private articleDS: BasicDataSource<ArticleCard> = new BasicDataSource<ArticleCard>();
   // 独立半模态窗口状态
   @State isSheetOpen: boolean = false;
   @State isSheetLoading: boolean = true;
   @State sheetMode: string = 'following'; // 'following' | 'fans' | 'folders'
   @State sheetTitle: string = '';
-  @State sheetContents: Array<FavFolder | UserCard> = [];
+  @State sheetContentCount: number = 0;
+  private sheetDS: BasicDataSource<FavFolder | UserCard> = new BasicDataSource<FavFolder | UserCard>();
   // Sheet 翻页状态（仅关注/粉丝有翻页，收藏夹无）
   private sheetPage: number = 1;
   private sheetHasMore: boolean = true;
@@ -90,16 +94,15 @@ export struct UserDetailPage {
     try {
       let result = await getUserVideos(this.pageParam.mid, this.videoPage, 30);
       if (result.videos.length > 0) {
-        this.videoList = this.videoList.concat(result.videos);
-        if (this.videoList.length > 50) {
-          this.videoList = this.videoList.slice(this.videoList.length - 50);
-        }
+        this.videoDS.appendData(result.videos);
+        this.videoDS.trimTo(50);
+        this.videoCount = this.videoDS.totalCount();
         this.videoTotal = result.total;
         this.videoPage++;
         // 已加载数 >= 总数说明没有更多了
-        this.videoHasMore = this.videoList.length < result.total;
+        this.videoHasMore = this.videoCount < result.total;
         console.info('[UserDetailPage] 视频翻页 ' + (this.videoPage - 1) +
-          ' 已加载=' + this.videoList.length + '/' + result.total);
+          ' 已加载=' + this.videoCount + '/' + result.total);
       } else {
         this.videoHasMore = false;
       }
@@ -118,15 +121,14 @@ export struct UserDetailPage {
     try {
       let result = await getUserArticles(this.pageParam.mid, this.articlePage, 30);
       if (result.articles.length > 0) {
-        this.articleList = this.articleList.concat(result.articles);
-        if (this.articleList.length > 50) {
-          this.articleList = this.articleList.slice(this.articleList.length - 50);
-        }
+        this.articleDS.appendData(result.articles);
+        this.articleDS.trimTo(50);
+        this.articleCount = this.articleDS.totalCount();
         this.articleTotal = result.total;
         this.articlePage++;
-        this.articleHasMore = this.articleList.length < result.total;
+        this.articleHasMore = this.articleCount < result.total;
         console.info('[UserDetailPage] 专栏翻页 ' + (this.articlePage - 1) +
-          ' 已加载=' + this.articleList.length + '/' + result.total);
+          ' 已加载=' + this.articleCount + '/' + result.total);
       } else {
         this.articleHasMore = false;
       }
@@ -189,7 +191,8 @@ export struct UserDetailPage {
   /** 点击关注/粉丝/收藏按钮时统一入口 */
   async handleStatClick(mode: string) {
     this.sheetMode = mode;
-    this.sheetContents = [];
+    this.sheetDS.resetData([]);
+    this.sheetContentCount = 0;
     this.sheetPage = 1;
     this.sheetHasMore = true;
     this.isSheetLoading = true;
@@ -209,8 +212,9 @@ export struct UserDetailPage {
           });
           return;
         }
-        this.sheetContents = result.users;
-        this.sheetHasMore = this.sheetContents.length < result.total;
+        this.sheetDS.resetData(result.users);
+        this.sheetContentCount = this.sheetDS.totalCount();
+        this.sheetHasMore = this.sheetContentCount < result.total;
         this.sheetPage = 2;
       } else if (mode === 'fans') {
         this.sheetTitle = '粉丝';
@@ -223,8 +227,9 @@ export struct UserDetailPage {
           });
           return;
         }
-        this.sheetContents = result.users;
-        this.sheetHasMore = this.sheetContents.length < result.total;
+        this.sheetDS.resetData(result.users);
+        this.sheetContentCount = this.sheetDS.totalCount();
+        this.sheetHasMore = this.sheetContentCount < result.total;
         this.sheetPage = 2;
       } else if (mode === 'folders') {
         this.sheetTitle = '收藏夹';
@@ -233,7 +238,8 @@ export struct UserDetailPage {
         for (let f of result.folders) {
           await fillFavFolderDetail(f);
         }
-        this.sheetContents = result.folders;
+        this.sheetDS.resetData(result.folders);
+        this.sheetContentCount = this.sheetDS.totalCount();
         this.sheetHasMore = false; // 收藏夹没有翻页机制
       }
     } catch (e) {
@@ -255,25 +261,23 @@ export struct UserDetailPage {
       if (this.sheetMode === 'following') {
         let result = await getUserFollowings(this.pageParam.mid, this.sheetPage, 50);
         let userList = result.users;
-        this.sheetContents = this.sheetContents.concat(userList);
-        if (this.sheetContents.length > 50) {
-          this.sheetContents = this.sheetContents.slice(this.sheetContents.length - 50);
-        }
-        this.sheetHasMore = this.sheetContents.length < result.total;
+        this.sheetDS.appendData(userList);
+        this.sheetDS.trimTo(50);
+        this.sheetContentCount = this.sheetDS.totalCount();
+        this.sheetHasMore = this.sheetContentCount < result.total;
         this.sheetPage++;
         console.info('[UserDetailPage] 关注翻页 ' + (this.sheetPage - 1) +
-          ' 已加载=' + this.sheetContents.length + '/' + result.total);
+          ' 已加载=' + this.sheetContentCount + '/' + result.total);
       } else if (this.sheetMode === 'fans') {
         let result = await getUserFans(this.pageParam.mid, this.sheetPage, 50);
         let userList = result.users;
-        this.sheetContents = this.sheetContents.concat(userList);
-        if (this.sheetContents.length > 50) {
-          this.sheetContents = this.sheetContents.slice(this.sheetContents.length - 50);
-        }
-        this.sheetHasMore = this.sheetContents.length < result.total;
+        this.sheetDS.appendData(userList);
+        this.sheetDS.trimTo(50);
+        this.sheetContentCount = this.sheetDS.totalCount();
+        this.sheetHasMore = this.sheetContentCount < result.total;
         this.sheetPage++;
         console.info('[UserDetailPage] 粉丝翻页 ' + (this.sheetPage - 1) +
-          ' 已加载=' + this.sheetContents.length + '/' + result.total);
+          ' 已加载=' + this.sheetContentCount + '/' + result.total);
       }
     } catch (e) {
       console.error('[UserDetailPage] loadMoreSheetData 异常: ' + String(e));
@@ -292,7 +296,7 @@ export struct UserDetailPage {
         .fontWeight(FontWeight.Bold)
         .margin({ top: 16, bottom: 8 })
 
-      if (this.sheetContents.length === 0) {
+      if (this.sheetContentCount === 0) {
         Text('暂无内容')
           .fontSize(13)
           .fontColor('#999999')
@@ -301,7 +305,7 @@ export struct UserDetailPage {
           .width('80%')
       } else {
         List({ space: 6 }) {
-          ForEach(this.sheetContents, (content: (FavFolder | UserCard)) => {
+          LazyForEach(this.sheetDS, (content: (FavFolder | UserCard)) => {
             ListItem() {
               Row() {
                 if (content instanceof FavFolder) {
@@ -314,6 +318,11 @@ export struct UserDetailPage {
               .borderRadius(8)
               .backgroundColor('rgba(66,66,66,0.4)')
             }
+          }, (content: (FavFolder | UserCard)) => {
+            if (content instanceof FavFolder) {
+              return 'f_' + content.mlid.toString();
+            }
+            return 'u_' + content.mid.toString();
           })
 
           // 底部加载状态（仅关注/粉丝展示）
@@ -330,8 +339,8 @@ export struct UserDetailPage {
                 .justifyContent(FlexAlign.Center)
                 .padding(12)
                 .width('100%')
-              } else if (!this.sheetHasMore && this.sheetContents.length > 0) {
-                Text('— 已加载全部 ' + this.sheetContents.length + ' 项 —')
+              } else if (!this.sheetHasMore && this.sheetContentCount > 0) {
+                Text('— 已加载全部 ' + this.sheetContentCount + ' 项 —')
                   .fontSize(12)
                   .fontColor('#555555')
                   .padding(12)
@@ -602,7 +611,7 @@ export struct UserDetailPage {
               Column().height(40)
             }
 
-            ForEach(this.videoList, (item: VideoCard) => {
+            LazyForEach(this.videoDS, (item: VideoCard) => {
               ListItem() {
                 VideoCardComponent({ card: item })
               }
@@ -624,13 +633,13 @@ export struct UserDetailPage {
                   }
                   .justifyContent(FlexAlign.Center)
                   .padding(12)
-                } else if (!this.videoHasMore && this.videoList.length > 0) {
+                } else if (!this.videoHasMore && this.videoCount > 0) {
                   Text('- 已加载全部 ' + this.videoTotal + ' 个视频 -')
                     .fontSize(12)
                     .fontColor('#555555')
                     .padding(12)
                     .alignSelf(ItemAlign.Center)
-                } else if (this.videoList.length === 0 && this.dataLoaded) {
+                } else if (this.videoCount === 0 && this.dataLoaded) {
                   Text('暂无视频投稿')
                     .fontSize(14)
                     .fontColor('#666666')
@@ -665,7 +674,7 @@ export struct UserDetailPage {
               Column().height(40)
             }
 
-            ForEach(this.articleList, (item: ArticleCard) => {
+            LazyForEach(this.articleDS, (item: ArticleCard) => {
               ListItem() {
                 ArticleCardComponent({ card: item })
               }
@@ -687,13 +696,13 @@ export struct UserDetailPage {
                   }
                   .justifyContent(FlexAlign.Center)
                   .padding(12)
-                } else if (!this.articleHasMore && this.articleList.length > 0) {
+                } else if (!this.articleHasMore && this.articleCount > 0) {
                   Text('- 已加载全部 ' + this.articleTotal + ' 篇专栏 -')
                     .fontSize(12)
                     .fontColor('#555555')
                     .padding(12)
                     .alignSelf(ItemAlign.Center)
-                } else if (this.articleList.length === 0 && this.dataLoaded) {
+                } else if (this.articleCount === 0 && this.dataLoaded) {
                   Text('暂无专栏投稿')
                     .fontSize(14)
                     .fontColor('#666666')

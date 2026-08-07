@@ -11,6 +11,7 @@ import { getVideoDetail, VideoDetailResult } from '../api/VideoDetailApi';
 import { VideoCardComponent } from '../components/VideoCardComponent';
 import { VideoCard } from '../model/ContentCard';
 import { getCookieValue } from '../api/CookiesApi';
+import { BasicDataSource } from '../utils/BasicDataSource';
 
 // ===== 段类型（用于消息文本+表情混合渲染） =====
 
@@ -40,7 +41,8 @@ export struct ChatPage {
   @State talkerAvatar: string = '';
 
   // ===== 状态 =====
-  @State messages: PrivateMessage[] = [];
+  @State msgCount: number = 0;
+  private msgDS: BasicDataSource<PrivateMessage> = new BasicDataSource<PrivateMessage>();
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
   @State firstLoad: boolean = true;
@@ -126,7 +128,7 @@ export struct ChatPage {
       .width('100%').height('100%')
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-    } else if (this.messages.length === 0 && !this.isLoading) {
+    } else if (this.msgCount === 0 && !this.isLoading) {
       Column() {
         Text('暂无消息').fontSize(16).fontColor('#888888')
         if (this.errorMessage) {
@@ -149,11 +151,11 @@ export struct ChatPage {
         ListItem(){
           Column().height('10%')
         }
-        ForEach(this.messages, (msg: PrivateMessage, index?: number) => {
+        LazyForEach(this.msgDS, (msg: PrivateMessage) => {
           ListItem() {
             this.MessageItem(msg)
           }
-        })
+        }, (msg: PrivateMessage) => (msg.msgKey > 0 ? msg.msgKey : msg.msgSeqno).toString())
         ListItem(){
           Column().height('10%')
         }
@@ -422,13 +424,16 @@ export struct ChatPage {
 
     try {
       let result: FetchMessagesResult = await fetchMessages(this.talkerId);
-      this.messages = result.messages.reverse();
+      let msgs: PrivateMessage[] = result.messages.reverse();
+      this.msgDS.resetData(msgs);
+      this.msgCount = this.msgDS.totalCount();
       this.emoteMap = result.emoteMap;
       this.firstLoad = false;
 
       // 视频消息缺失作者信息时用 VideoDetailApi 兜底（用于只有 id 的罕见情况）
-      for (let i: number = 0; i < this.messages.length; i++) {
-        let msg: PrivateMessage = this.messages[i];
+      let allMsgs: PrivateMessage[] = this.msgDS.getAllData();
+      for (let i: number = 0; i < allMsgs.length; i++) {
+        let msg: PrivateMessage = allMsgs[i];
         if ((msg.msgType === 7 || msg.msgType === 11) && msg.videoCard) {
           if (msg.videoCard.aid > 0 && !msg.videoCard.upName) {
             try {

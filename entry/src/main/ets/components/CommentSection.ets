@@ -8,13 +8,15 @@ import { CommentCardComponent } from './CommentCardComponent';
 import { getCommentList, getCommentCount } from '../api/CommentApi';
 import { formatCount } from '../api/CommonApi';
 import { LengthMetrics } from '@kit.ArkUI';
+import { BasicDataSource } from '../utils/BasicDataSource';
 
 @Component
 export struct CommentSection {
   @Consume('pageStack') pageStack: NavPathStack;
   @Prop @Watch('onAidChanged') aid: number = 0;
   @Prop type: number[] = [1];
-  @State commentList: SingleComment[] = [];
+  @State commentCount: number = 0;
+  private commentDS: BasicDataSource<SingleComment> = new BasicDataSource<SingleComment>();
   @State totalCount: number = 0;
   @State isLoading: boolean = false;
   @State isRefreshing: boolean = false;
@@ -56,7 +58,7 @@ export struct CommentSection {
   // ==========================
   @Builder
   MainContent() {
-    if (this.firstLoad && this.isLoading && this.commentList.length === 0) {
+    if (this.firstLoad && this.isLoading && this.commentCount === 0) {
       // 首次加载中
       Column() {
         LoadingProgress().width(40).height(40).color('#FB7299')
@@ -65,7 +67,7 @@ export struct CommentSection {
       .width('100%').height('100%')
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-    } else if (this.commentList.length === 0) {
+    } else if (this.commentCount === 0) {
       // 没有评论
       Column() {
         Text('暂无评论').fontSize(14).fontColor('#888888')
@@ -118,14 +120,14 @@ export struct CommentSection {
           }
 
           // ─── 评论卡片（紧凑模式） ───
-          ForEach(this.commentList, (item: SingleComment) => {
+          LazyForEach(this.commentDS, (item: SingleComment) => {
             ListItem() {
               CommentCardComponent({ comment: item, isExpand: false })
             }
             .onClick(() => {
               this.onCommentTap(item);
             })
-          })
+          }, (item: SingleComment) => item.rpid.toString())
 
           // ─── 底部加载更多指示 ───
           ListItem() {
@@ -133,7 +135,7 @@ export struct CommentSection {
               if (this.isLoading) {
                 LoadingProgress().width(18).height(18).color('#FB7299')
                 Text('加载更多...').fontSize(12).fontColor('#777777').margin({ left: 6 })
-              } else if (!this.hasMore && this.commentList.length > 0) {
+              } else if (!this.hasMore && this.commentCount > 0) {
                 Text('— 没有更多了 —').fontSize(12).fontColor('#555555')
               }
             }
@@ -171,7 +173,8 @@ export struct CommentSection {
 
     if (isRefresh) {
       this.currentPage = 1;
-      this.commentList = [];
+      this.commentDS.resetData([]);
+      this.commentCount = 0;
       this.hasMore = true;
     }
 
@@ -184,12 +187,12 @@ export struct CommentSection {
       const result = await getCommentList(this.aid, this.currentPage, 10, this.currentSort, this.type);
 
       if (isRefresh) {
-        this.commentList = result.list;
+        this.commentDS.resetData(result.list);
+        this.commentCount = this.commentDS.totalCount();
       } else {
-        this.commentList = this.commentList.concat(result.list);
-        if (this.commentList.length > 50) {
-          this.commentList = this.commentList.slice(this.commentList.length - 50);
-        }
+        this.commentDS.appendData(result.list);
+        this.commentDS.trimTo(50);
+        this.commentCount = this.commentDS.totalCount();
       }
 
       this.hasMore = result.list.length >= 10;

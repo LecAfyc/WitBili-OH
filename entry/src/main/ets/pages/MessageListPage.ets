@@ -9,12 +9,14 @@ import { PrivateMessageSession } from '../model/PrivateMessage';
 import { UserCard } from '../model/UserCard';
 import { UserCardComponentStatic } from '../components/UserCardComponentStatic';
 import { getSessions } from '../api/MessageApi';
+import { BasicDataSource } from '../utils/BasicDataSource';
 
 @Component
 export struct MessageListPage {
   @Consume('pageStack') pageStack: NavPathStack;
   // ===== 状态 =====
-  @State sessions: PrivateMessageSession[] = [];
+  @State sessionCount: number = 0;
+  private sessionDS: BasicDataSource<PrivateMessageSession> = new BasicDataSource<PrivateMessageSession>();
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
   @State firstLoad: boolean = true;
@@ -81,7 +83,7 @@ export struct MessageListPage {
       .width('100%').height('100%')
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-    } else if (this.sessions.length === 0) {
+    } else if (this.sessionCount === 0) {
       Column() {
         Text('暂无私信').fontSize(16).fontColor('#888888')
         if (this.errorMessage) {
@@ -102,7 +104,7 @@ export struct MessageListPage {
       .alignItems(HorizontalAlign.Center)
     } else {
       List({ space: 8 }) {
-        ForEach(this.sessions, (session: PrivateMessageSession, index?: number) => {
+        LazyForEach(this.sessionDS, (session: PrivateMessageSession) => {
           ListItem() {
             UserCardComponentStatic({
               card: new UserCard(session.talkerName, session.talkerAvatar, session.talkerId),
@@ -119,7 +121,7 @@ export struct MessageListPage {
                 this.pageStack.pushPath({ name: 'ChatPage', param: chatParam });
               })
           }
-        })
+        }, (session: PrivateMessageSession) => session.talkerId.toString())
       }
       .width('100%')
       .height('100%')
@@ -141,7 +143,8 @@ export struct MessageListPage {
 
     try {
       let list: PrivateMessageSession[] = await getSessions();
-      this.sessions = list;
+      this.sessionDS.resetData(list);
+      this.sessionCount = this.sessionDS.totalCount();
       this.firstLoad = false;
       if (list.length === 0) {
         this.errorMessage = '暂无用户私信会话';

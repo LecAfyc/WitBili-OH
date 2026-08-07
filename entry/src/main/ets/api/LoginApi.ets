@@ -596,13 +596,6 @@ export interface MyAccountInfo {
  *
  * @returns 登录成功返回 MyAccountInfo，失败/未登录返回 null
  *
- * 使用示例：
- * ```typescript
- * let info = await getMyAccountInfo();
- * if (info) {
- *   console.info('我的 mid=' + info.mid + ' 昵称=' + info.uname);
- * }
- * ```
  */
 export async function getMyAccountInfo(): Promise<MyAccountInfo | null> {
   try {
@@ -610,6 +603,12 @@ export async function getMyAccountInfo(): Promise<MyAccountInfo | null> {
     if (!cookieMap['SESSDATA']) {
       console.warn('[Account] 无 SESSDATA，未登录');
       return null;
+    }
+
+
+    let cache = AppStorage.get<MyAccountInfo | null>('myself');
+    if (cache !== null && cache !== undefined){
+      return cache;
     }
 
     let url: string = 'https://api.bilibili.com/x/member/web/account';

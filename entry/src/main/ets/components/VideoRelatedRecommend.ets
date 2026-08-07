@@ -8,6 +8,7 @@
 import { VideoCard } from '../model/ContentCard';
 import { VideoCardComponent } from './VideoCardComponent';
 import { getRelatedVideos } from '../api/RecommendApi';
+import { BasicDataSource } from '../utils/BasicDataSource';
 
 @Component
 export struct VideoRelatedRecommend {
@@ -16,7 +17,7 @@ export struct VideoRelatedRecommend {
   @Prop @Watch('onAidChanged') aid: number = 0;
   @Prop bvid: string = '';
   // ===== 组件内部状态 =====
-  @State relatedVideos: VideoCard[] = [];
+  private relatedDS: BasicDataSource<VideoCard> = new BasicDataSource<VideoCard>();
   @State isLoading: boolean = true;
   @State loadError: string = '';
 
@@ -38,7 +39,7 @@ export struct VideoRelatedRecommend {
     this.loadError = '';
     try {
       let list = await getRelatedVideos(this.aid > 0 ? this.aid : undefined, this.bvid);
-      this.relatedVideos = list;
+      this.relatedDS.resetData(list);
       this.isLoading = false;
       console.info('[VideoRelatedRecommend] 推荐加载完成: ' + list.length.toString() + ' 条');
     } catch (e) {
@@ -80,11 +81,11 @@ export struct VideoRelatedRecommend {
             Column().height('14%')
           }
 
-          ForEach(this.relatedVideos, (item: VideoCard, index?: number) => {
+          LazyForEach(this.relatedDS, (item: VideoCard) => {
             ListItem() {
               VideoCardComponent({ card: item })
             }
-          })
+          }, (item: VideoCard) => item.bvid || item.aid.toString())
 
           ListItem() {
             Column().height('14%')

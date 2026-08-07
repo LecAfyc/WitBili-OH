@@ -15,6 +15,7 @@ import { Dynamic } from '../model/Dynamic';
 import { DynamicCardComponent } from './DynamicCardComponent';
 import { getDynamicFeed, getUserDynamic, checkDynamicUpdate } from '../api/DynamicApi';
 import { LengthMetrics } from '@kit.ArkUI';
+import { BasicDataSource } from '../utils/BasicDataSource';
 
 // ===== 类型切换配置 =====
 interface TypeOption {
@@ -33,7 +34,8 @@ export struct DynamicSection {
   @Consume('pageStack') pageStack: NavPathStack;
   /** mid=0 加载首页动态，mid>0 加载用户空间动态 */
   @Prop mid: number = 0;
-  @State dynamicList: Dynamic[] = [];
+  @State dynamicCount: number = 0;
+  private dynamicDS: BasicDataSource<Dynamic> = new BasicDataSource<Dynamic>();
   /** 新动态数量（仅首页有效） */
   @State newCount: number = 0;
   @State isLoading: boolean = false;
@@ -59,7 +61,7 @@ export struct DynamicSection {
 
   build() {
     Column() {
-      if (this.firstLoad && this.isLoading && this.dynamicList.length === 0) {
+      if (this.firstLoad && this.isLoading && this.dynamicCount === 0) {
         // 首次加载
         Column() {
           LoadingProgress().width(40).height(40).color('#FB7299')
@@ -68,7 +70,7 @@ export struct DynamicSection {
         .width('100%').height('100%')
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
-      } else if (this.dynamicList.length === 0 && !this.isLoading) {
+      } else if (this.dynamicCount === 0 && !this.isLoading) {
         // 没有动态
         Column() {
           Text(this.mid === 0 ? '暂无动态' : 'TA还没有发过动态')
@@ -116,14 +118,14 @@ export struct DynamicSection {
             }
 
             // ─── 动态卡片（折叠态） ───
-            ForEach(this.dynamicList, (item: Dynamic, index: number) => {
+            LazyForEach(this.dynamicDS, (item: Dynamic) => {
               ListItem() {
                 DynamicCardComponent({ dynamic: item, isExpand: false })
               }
               .onClick(() => {
                 this.onDynamicTap(item);
               })
-            })
+            }, (item: Dynamic) => item.dynamicId.toString())
 
             // ─── 底部加载更多指示 ───
             ListItem() {
@@ -131,7 +133,7 @@ export struct DynamicSection {
                 if (this.isLoading) {
                   LoadingProgress().width(18).height(18).color('#FB7299')
                   Text('加载更多...').fontSize(12).fontColor('#777777').margin({ left: 6 })
-                } else if (!this.hasMore && this.dynamicList.length > 0) {
+                } else if (!this.hasMore && this.dynamicCount > 0) {
                   Text('— 没有更多了 —').fontSize(12).fontColor('#555555')
                 }
               }
@@ -175,7 +177,8 @@ export struct DynamicSection {
 
     if (isRefresh) {
       this.loadOffset = '';
-      this.dynamicList = [];
+      this.dynamicDS.resetData([]);
+      this.dynamicCount = 0;
       this.hasMore = true;
       this.updateBaseline = '';
     }
@@ -186,7 +189,8 @@ export struct DynamicSection {
         const result = await getDynamicFeed(this.loadOffset, this.currentType);
 
         if (isRefresh) {
-          this.dynamicList = result.list;
+          this.dynamicDS.resetData(result.list);
+          this.dynamicCount = this.dynamicDS.totalCount();
           this.updateBaseline = result.updateBaseline;
 
           // 检查新动态数量（需要 updateBaseline）
@@ -199,10 +203,9 @@ export struct DynamicSection {
             }
           }
         } else {
-          this.dynamicList = this.dynamicList.concat(result.list);
-          if (this.dynamicList.length > 50) {
-            this.dynamicList = this.dynamicList.slice(this.dynamicList.length - 50);
-          }
+          this.dynamicDS.appendData(result.list);
+          this.dynamicDS.trimTo(50);
+          this.dynamicCount = this.dynamicDS.totalCount();
         }
 
         this.loadOffset = result.offset;
@@ -212,12 +215,12 @@ export struct DynamicSection {
         const result = await getUserDynamic(this.mid, this.loadOffset);
 
         if (isRefresh) {
-          this.dynamicList = result.list;
+          this.dynamicDS.resetData(result.list);
+          this.dynamicCount = this.dynamicDS.totalCount();
         } else {
-          this.dynamicList = this.dynamicList.concat(result.list);
-          if (this.dynamicList.length > 50) {
-            this.dynamicList = this.dynamicList.slice(this.dynamicList.length - 50);
-          }
+          this.dynamicDS.appendData(result.list);
+          this.dynamicDS.trimTo(50);
+          this.dynamicCount = this.dynamicDS.totalCount();
         }
 
         this.loadOffset = result.offset;

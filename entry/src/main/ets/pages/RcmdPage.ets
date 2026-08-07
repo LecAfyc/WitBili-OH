@@ -2,12 +2,14 @@ import { VideoCard } from '../model/ContentCard';
 import { getRecommend, resetRecommendCursor } from '../api/RecommendApi';
 import { VideoCardComponent } from '../components/VideoCardComponent';
 import { LengthMetrics } from '@kit.ArkUI';
+import { BasicDataSource } from '../utils/BasicDataSource';
 
 @Component
 export struct RcmdPage {
   @Consume('pageStack') pageStack: NavPathStack;
   // ===== 状态 =====
-  @State videoList: VideoCard[] = [];
+  @State videoListCount: number = 0;
+  private videoDS: BasicDataSource<VideoCard> = new BasicDataSource<VideoCard>();
   @State isLoading: boolean = false;
   @State isRefreshing: boolean = false;
   @State errorMessage: string = '';
@@ -64,7 +66,7 @@ export struct RcmdPage {
   // ==========================
   @Builder
   MainContent() {
-    if (this.firstLoad && this.isLoading && this.videoList.length === 0) {
+    if (this.firstLoad && this.isLoading && this.videoListCount === 0) {
       Column() {
         LoadingProgress().width(40).height(40).color('#FB7299')
         Text('加载中...').fontSize(15).fontColor('#666666').margin({ top: 12 })
@@ -72,7 +74,7 @@ export struct RcmdPage {
       .width('100%').height('100%')
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-    } else if (this.videoList.length === 0) {
+    } else if (this.videoListCount === 0) {
       Column() {
         Text('󰁕 TRACK LOST').fontSize(40)
         Text(this.errorMessage)
@@ -92,11 +94,11 @@ export struct RcmdPage {
     } else {
       Refresh({ refreshing: this.isRefreshing }) {
         List({ space: 8 }) {
-          ForEach(this.videoList, (item: VideoCard, index?: number) => {
+          LazyForEach(this.videoDS, (item: VideoCard) => {
             ListItem() {
               VideoCardComponent({ card: item })
             }
-          })
+          }, (item: VideoCard) => item.bvid || item.aid.toString())
           ListItem() {
             Row() {
               if (this.isLoading) {
@@ -140,22 +142,23 @@ export struct RcmdPage {
     if (isRefresh) {
       resetRecommendCursor();
       this.firstLoad = true;
-      this.videoList = [];
+      this.videoDS.resetData([]);
+      this.videoListCount = 0;
     }
 
     try {
       let result = await getRecommend();
       if (this.firstLoad) {
-        this.videoList = result.items;
+        this.videoDS.resetData(result.items);
+        this.videoListCount = this.videoDS.totalCount();
         this.firstLoad = false;
       } else {
-        this.videoList = this.videoList.concat(result.items);
-        if (this.videoList.length > 50) {
-          this.videoList = this.videoList.slice(this.videoList.length - 50);
-        }
+        this.videoDS.appendData(result.items);
+        this.videoDS.trimTo(50);
+        this.videoListCount = this.videoDS.totalCount();
       }
       this.hasMore = result.items.length > 0;
-      if (this.videoList.length === 0) {
+      if (this.videoListCount === 0) {
         this.errorMessage = '暂无推荐内容';
       }
     } catch (e) {

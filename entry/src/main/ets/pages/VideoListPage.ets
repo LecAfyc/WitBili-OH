@@ -18,6 +18,7 @@ import { VideoCardComponent } from '../components/VideoCardComponent';
 import { LengthMetrics } from '@kit.ArkUI';
 import { getFavResourceList } from '../api/UserApi';
 import { getHistoryList, getToViewList, deleteToView } from '../api/HistoryApi';
+import { BasicDataSource } from '../utils/BasicDataSource';
 
 
 /** 视频列表页面路由参数 */
@@ -40,7 +41,8 @@ export class VideoListPageParams {
 export struct VideoListPage {
   @Consume('pageStack') pageStack: NavPathStack;
   // ===== 视图状态 =====
-  @State videoList: VideoCard[] = [];
+  @State videoListCount: number = 0;
+  private videoDS: BasicDataSource<VideoCard> = new BasicDataSource<VideoCard>();
   @State isLoading: boolean = false;
   @State isRefreshing: boolean = false;
   @State pageTitle: string = '';
@@ -94,7 +96,7 @@ export struct VideoListPage {
   // ==========================
   @Builder
   MainContent() {
-    if (this.firstLoad && this.isLoading && this.videoList.length === 0) {
+    if (this.firstLoad && this.isLoading && this.videoListCount === 0) {
       // ---- 首次加载中 ----
       Column() {
         LoadingProgress()
@@ -110,7 +112,7 @@ export struct VideoListPage {
       .height('100%')
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-    } else if (this.videoList.length === 0) {
+    } else if (this.videoListCount === 0) {
       // ---- 空状态 ----
       Column() {
         Text('X TRACK LOST')
@@ -141,19 +143,17 @@ export struct VideoListPage {
             Column().height('14%')
           }
 
-          ForEach(this.videoList, (item: VideoCard, index?: number) => {
+          LazyForEach(this.videoDS, (item: VideoCard) => {
             ListItem() {
               VideoCardComponent({ card: item })
             }
             .gesture(
               LongPressGesture()
                 .onAction(() => {
-                  if (index !== undefined) {
-                    this.showDeleteDialog(item, index);
-                  }
+                  this.showDeleteDialog(item);
                 })
             )
-          })
+          }, (item: VideoCard) => item.bvid || item.aid.toString())
 
           // 底部加载状态指示
           if (this.isWatchLater()) {
@@ -194,7 +194,7 @@ export struct VideoListPage {
           }
         })
         .onReachStart(() => {
-          if (this.sourceType === 'collection' && this.videoList.length >= 50) {
+          if (this.sourceType === 'collection' && this.videoListCount >= 50) {
             this.loadInitial();
           }
         })
@@ -240,31 +240,30 @@ export struct VideoListPage {
     try {
       if (this.isCollection() && this.mlid > 0) {
         let result = await getFavResourceList(this.mlid, 1, 20);
-        this.videoList = result.videos;
-        if (this.videoList.length > 50) {
-          this.videoList = this.videoList.slice(this.videoList.length - 50);
-        }
+        this.videoDS.resetData(result.videos);
+        this.videoDS.trimTo(50);
+        this.videoListCount = this.videoDS.totalCount();
         this.hasMore = result.hasMore;
-        if (this.videoList.length === 0) {
+        if (this.videoListCount === 0) {
           this.errorMessage = '收藏夹空空如也';
         }
       } else if (this.isHistory()) {
         let result = await getHistoryList(0, 0, 20);
-        this.videoList = result.items;
-        if (this.videoList.length > 50) {
-          this.videoList = this.videoList.slice(this.videoList.length - 50);
-        }
+        this.videoDS.resetData(result.items);
+        this.videoDS.trimTo(50);
+        this.videoListCount = this.videoDS.totalCount();
         this.hasMore = result.hasMore;
         this.historyCursorMax = result.cursor.max;
         this.historyCursorViewAt = result.cursor.viewAt;
-        if (this.videoList.length === 0) {
+        if (this.videoListCount === 0) {
           this.errorMessage = '还没有观看记录';
         }
       } else if (this.isWatchLater()) {
         let result = await getToViewList();
-        this.videoList = result.items;
+        this.videoDS.resetData(result.items);
+        this.videoListCount = this.videoDS.totalCount();
         this.hasMore = false;
-        if (this.videoList.length === 0) {
+        if (this.videoListCount === 0) {
           this.errorMessage = '稍后再看列表为空';
         }
       } else {
@@ -293,10 +292,9 @@ export struct VideoListPage {
       if (this.isCollection() && this.mlid > 0) {
         let nextPage: number = this.currentPage + 1;
         let result = await getFavResourceList(this.mlid, nextPage, 20);
-        this.videoList = this.videoList.concat(result.videos);
-        if (this.videoList.length > 50) {
-          this.videoList = this.videoList.slice(this.videoList.length - 50);
-        }
+        this.videoDS.appendData(result.videos);
+        this.videoDS.trimTo(50);
+        this.videoListCount = this.videoDS.totalCount();
         this.hasMore = result.hasMore;
         this.currentPage = nextPage;
       } else if (this.isHistory()) {
@@ -305,10 +303,9 @@ export struct VideoListPage {
           this.historyCursorViewAt,
           20
         );
-        this.videoList = this.videoList.concat(result.items);
-        if (this.videoList.length > 50) {
-          this.videoList = this.videoList.slice(this.videoList.length - 50);
-        }
+        this.videoDS.appendData(result.items);
+        this.videoDS.trimTo(50);
+        this.videoListCount = this.videoDS.totalCount();
         this.hasMore = result.hasMore;
         this.historyCursorMax = result.cursor.max;
         this.historyCursorViewAt = result.cursor.viewAt;
@@ -337,7 +334,7 @@ export struct VideoListPage {
   //        视图构建
   // ==========================
 
-  private showDeleteDialog(item: VideoCard, index: number): void {
+  private showDeleteDialog(item: VideoCard): void {
     if (!this.isWatchLater()) {
       return;
     }
@@ -350,7 +347,7 @@ export struct VideoListPage {
       ]
     }).then((result) => {
       if (result.index === 1) {
-        this.deleteVideo(item, index);
+        this.deleteVideo(item);
       }
     }).catch(() => {
       // 用户取消对话框，不做任何处理
@@ -360,13 +357,24 @@ export struct VideoListPage {
   // ==========================
   //        主内容区
 
-  private async deleteVideo(item: VideoCard, index: number): Promise<void> {
+  private async deleteVideo(item: VideoCard): Promise<void> {
     try {
       let result = await deleteToView(item.aid);
       if (result.success) {
-        this.videoList.splice(index, 1);
+        let all: VideoCard[] = this.videoDS.getAllData();
+        let idx: number = -1;
+        for (let i: number = 0; i < all.length; i++) {
+          if (all[i].aid === item.aid) {
+            idx = i;
+            break;
+          }
+        }
+        if (idx >= 0) {
+          this.videoDS.deleteData(idx);
+        }
+        this.videoListCount = this.videoDS.totalCount();
         this.getUIContext().getPromptAction().showToast({ message: '已删除' });
-        if (this.videoList.length === 0) {
+        if (this.videoListCount === 0) {
           this.errorMessage = '稍后再看列表为空';
         }
       } else {
