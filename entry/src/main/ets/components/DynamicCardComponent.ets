@@ -42,6 +42,7 @@ interface Seg {
 }
 
 // ===== 组件 =====
+@Reusable
 @Component
 export struct DynamicCardComponent {
   @Consume('pageStack') pageStack: NavPathStack;
@@ -54,6 +55,14 @@ export struct DynamicCardComponent {
   private readonly fs: number = 13;
   private readonly lh: number = 20;
   private readonly maxLines: number = 4;
+
+  aboutToReuse(params: Record<string, Object>): void {
+    this.dynamic = params.dynamic as Dynamic;
+    this.isExpand = params.isExpand as boolean;
+    this.isForwarded = params.isForwarded as boolean;
+    this.isLiked = this.dynamic.stats.liked;
+    this.likeCount = this.dynamic.stats.like;
+  }
 
   // ----------------------------  富文本解析  ----------------------------
 
@@ -140,12 +149,6 @@ export struct DynamicCardComponent {
   }
 
   // ----------------------------  点赞  ----------------------------
-
-  aboutToAppear(): void {
-    // 从 @Prop 同步到 @State，确保 UI 能响应变化
-    this.isLiked = this.dynamic.stats.liked;
-    this.likeCount = this.dynamic.stats.like;
-  }
 
   build() {
     Column() {
@@ -342,7 +345,7 @@ export struct DynamicCardComponent {
   }
 
   private async onLikeClick(): Promise<void> {
-    if (this.dynamic.dynamicId <= 0) {
+    if (this.dynamic.dynamicId === '') {
       return;
     }
 

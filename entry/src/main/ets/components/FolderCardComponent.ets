@@ -5,12 +5,20 @@
 import { FavFolder } from '../model/FavFolder';
 import { VideoListPageParams } from '../pages/VideoListPage';
 
+@Reusable
 @Component
 export struct FolderCardComponent {
   // ===== 对外属性 =====
   @Prop card: FavFolder = new FavFolder();
   @Prop color?: string = '';
   @Consume('pageStack') pageStack: NavPathStack;
+
+  aboutToReuse(params: Record<string, Object>): void {
+    this.card = params.card as FavFolder;
+    if (params.color !== undefined) {
+      this.color = params.color as string;
+    }
+  }
 
   toThumb(url: string): string {
     if (url.indexOf('@') === -1) {

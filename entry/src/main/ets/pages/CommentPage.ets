@@ -58,7 +58,7 @@ export struct CommentPage {
         }, (item: SingleComment) => item.rpid.toString())
 
         // 暂无回复
-        if (!this.isLoading && this.replyCount === 0 && this.pageParam.rpid > 0) {
+        if (!this.isLoading && this.replyCount === 0 && this.pageParam.rpid !== '') {
           ListItem() {
             Text("暂无回复")
               .fontSize(13)
@@ -98,7 +98,7 @@ export struct CommentPage {
   }
 
   private async loadReplies(): Promise<void> {
-    if (this.isLoading || this.pageParam.rpid <= 0 || this.pageParam.oid <= 0) {
+    if (this.isLoading || this.pageParam.rpid === '' || this.pageParam.oid === '') {
       return;
     }
     this.isLoading = true;

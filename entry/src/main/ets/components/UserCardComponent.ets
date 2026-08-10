@@ -7,6 +7,7 @@
 
 import { UserCard } from '../model/UserCard';
 
+@Reusable
 @Component
 export struct UserCardComponent {
   @Consume('pageStack') pageStack: NavPathStack;
@@ -17,11 +18,25 @@ export struct UserCardComponent {
   @Prop baseFontSize: number = 14;
   @Prop color?: string = '';
   // 计算大小
-  s = this.baseFontSize / 14;
-  avatarW = 36 * this.s;
-  levelW = 16 * this.s;
-  extraH = 15 * this.s;
-  cardH = 56 * this.s;
+  s: number = this.baseFontSize / 14;
+  avatarW: number = 36 * this.s;
+  levelW: number = 16 * this.s;
+  extraH: number = 15 * this.s;
+  cardH: number = 56 * this.s;
+
+  aboutToReuse(params: Record<string, Object>): void {
+    this.card = params.card as UserCard;
+    this.extraInfo = params.extraInfo as string;
+    this.baseFontSize = params.baseFontSize as number;
+    if (params.color !== undefined) {
+      this.color = params.color as string;
+    }
+    this.s = this.baseFontSize / 14;
+    this.avatarW = 36 * this.s;
+    this.levelW = 16 * this.s;
+    this.extraH = 15 * this.s;
+    this.cardH = 56 * this.s;
+  }
 
   toThumb(url: string): string {
     if (url.indexOf('@') === -1) {

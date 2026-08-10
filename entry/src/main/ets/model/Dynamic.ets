@@ -40,12 +40,12 @@ export class DynamicStats {
 // ===== 动态主类 =====
 export class Dynamic {
   // --- 基础信息 ---
-  /** 动态唯一 ID */
-  dynamicId: number = 0;
+  /** 动态唯一 ID（字符串避免大整数溢出） */
+  dynamicId: string = '';
   /** 动态类型字符串，如 "DYNAMIC_TYPE_NONE"、新格式 "DYNAMIC_TYPE_DRAW"、"DYNAMIC_TYPE_VIDEO" 等 */
   type: string = '';
-  /** 关联的评论区 ID */
-  comment_id: number = 0;
+  /** 关联的评论区 ID（字符串避免大整数溢出） */
+  comment_id: string = '';
   /** 评论区类型（评论 API 需要此值） */
   comment_type: number = 0;
   // --- 发布者 ---
@@ -102,7 +102,7 @@ export class Dynamic {
   has_update: boolean = false;
 
   constructor(
-    dynamicId?: number,
+    dynamicId?: string,
     type?: string,
     userInfo?: UserCard,
     pubTime?: string,
@@ -116,7 +116,7 @@ export class Dynamic {
     stats?: DynamicStats,
     dynamic_forward?: Dynamic | null,
     canDelete?: boolean,
-    comment_id?: number,
+    comment_id?: string,
     comment_type?: number
   ) {
     if (dynamicId !== undefined) {

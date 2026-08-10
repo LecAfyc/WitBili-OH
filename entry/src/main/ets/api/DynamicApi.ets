@@ -135,6 +135,7 @@ export async function getUserDynamic(
     const emptyResult: DynamicListResult = { list: [], offset: '', updateBaseline: '' };
     return emptyResult;
   }
+  printStringByLines("[UserDynamics] content=" + JSON.stringify(resp.data));
 
   const data = resp.data as Record<string, Object>;
   const hasMore: boolean = (data['has_more'] as boolean) ?? false;
@@ -164,7 +165,7 @@ export async function getUserDynamic(
  * @param id 动态 ID
  * @returns  动态对象，失败返回 null
  */
-export async function getDynamicDetail(id: number): Promise<Dynamic | null> {
+export async function getDynamicDetail(id: string): Promise<Dynamic | null> {
   let url: string = DYNAMIC_API_BASE + '/detail?id=' + id
     + '&timezone_offset=-480';
   url = await signWBI(url);
@@ -197,7 +198,7 @@ export async function getDynamicDetail(id: number): Promise<Dynamic | null> {
  * @param id 被转发的原动态 ID
  * @returns  动态对象，失败返回 null
  */
-export async function getForwardItem(id: number): Promise<Dynamic | null> {
+export async function getForwardItem(id: string): Promise<Dynamic | null> {
   let url: string = DYNAMIC_API_BASE + '/detail/forward/item?id=' + id
     + '&timezone_offset=-480';
   url = await signWBI(url);
@@ -261,7 +262,7 @@ export async function checkDynamicUpdate(
  * @param like true = 点赞, false = 取消赞
  * @returns    是否操作成功
  */
-export async function likeDynamic(dyid: number, like: boolean): Promise<boolean> {
+export async function likeDynamic(dyid: string, like: boolean): Promise<boolean> {
   let csrf: string = cookieMap['bili_jct'] || AppStorage.get<string>('csrf') || '';
   if (!csrf) {
     console.warn('[DynamicApi] likeDynamic: csrf 为空');
@@ -315,7 +316,7 @@ function parseDynamicItem(item: Record<string, Object>): Dynamic {
   // --- id ---
   const idStr = item['id_str'] as string | undefined;
   if (idStr) {
-    dyn.dynamicId = Number(idStr);
+    dyn.dynamicId = idStr;
   }
   dyn.type = (item['type'] as string) ?? '';
 
@@ -324,17 +325,24 @@ function parseDynamicItem(item: Record<string, Object>): Dynamic {
   if (basic) {
     const cidStr = basic['comment_id_str'] as string | undefined;
     if (cidStr) {
-      dyn.comment_id = Number(cidStr);
+      dyn.comment_id = cidStr;
     }
     dyn.comment_type = (basic['comment_type'] as number) ?? 0;
   }
 
-  // 回退：orig 嵌套时 API 省略 comment_id_str / comment_type
-  if (dyn.comment_id === 0 && dyn.comment_type === 0) {
-    if (dyn.type === 'DYNAMIC_TYPE_FORWARD') {
-      dyn.comment_id = dyn.dynamicId;
-      dyn.comment_type = 17;
-    }
+  // 转发类动态评论区类型固定为 17（API 的 basic.comment_type 可能错误返回 11）
+  if (dyn.type === 'DYNAMIC_TYPE_FORWARD') {
+    dyn.comment_type = 17;
+  }
+
+  // 回退：comment_id 为空时使用 dynamicId
+  if (dyn.comment_id === '') {
+    dyn.comment_id = dyn.dynamicId;
+  }
+
+  // 回退：comment_type 未设置时按动态类型补全
+  if (dyn.comment_type === 0) {
+    dyn.comment_type = 11;
   }
 
   // --- 不存在动态 ---

@@ -73,17 +73,14 @@ export struct ImageViewPage {
     let newScale = this.saveScale * event.scale;
     newScale = Math.max(this.MIN_SCALE, Math.min(this.MAX_SCALE, newScale));
     this.curScale = newScale;
-    console.log(`[ImageViewer] Pinch scale: ${this.curScale.toFixed(2)}`);
   }
 
   onPinchEnd(): void {
-    console.log(`[ImageViewer] PinchEnd! scale=${this.curScale.toFixed(2)}`);
     // 不再自动贴合，完全自由缩放
   }
 
   // ====== 单指拖拽 ======
   onPanStart(): void {
-    console.log("[ImageViewer] PanStart!");
     this.saveOffsetX = this.curOffsetX;
     this.saveOffsetY = this.curOffsetY;
   }
@@ -91,17 +88,14 @@ export struct ImageViewPage {
   onPanUpdate(event: GestureEvent): void {
     this.curOffsetX = this.saveOffsetX + event.offsetX;
     this.curOffsetY = this.saveOffsetY + event.offsetY;
-    console.log(`[ImageViewer] Pan: (${this.curOffsetX.toFixed(0)}, ${this.curOffsetY.toFixed(0)})`);
   }
 
   onPanEnd(): void {
-    console.log("[ImageViewer] PanEnd!");
     this.restrictBoundary();
   }
 
   // ====== 双击 ======
   onDoubleTap(): void {
-    console.log("[ImageViewer] doubleTapped!");
     if (this.curScale > 1.1) {
       this.curScale = 1.0;
       this.curOffsetX = 0;

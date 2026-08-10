@@ -53,8 +53,8 @@ function parseCommentItem(item: Record<string, Object>): SingleComment {
   }
 
   // --- 顶层字段 ---
-  comment.rpid = (item['rpid'] as number) ?? 0;
-  comment.oid = (item['oid'] as number) ?? 0;
+  comment.oid = (item['oid'] as number)?.toString() ?? '';
+  comment.rpid = String(item['rpid'] ?? '');
 
   // --- reply_control → time_desc / ip_desc ---
   const replyCtrl = item['reply_control'] as Record<string, Object> | undefined;
@@ -176,7 +176,7 @@ export interface ActionResult {
  * @param action 操作：0=取消赞 1=点赞
  * @returns { success, message }
  */
-export async function likeComment(type: number, oid: number, rpid: number, action: number): Promise<ActionResult> {
+export async function likeComment(type: number, oid: string, rpid: string, action: number): Promise<ActionResult> {
   let csrf: string = cookieMap['bili_jct'] || AppStorage.get<string>('csrf') || '';
   if (!csrf) {
     console.warn('[CommentApi] likeComment: csrf 为空');
@@ -223,7 +223,7 @@ export async function likeComment(type: number, oid: number, rpid: number, actio
  * @param action 操作：0=取消踩 1=点踩
  * @returns { success, message }
  */
-export async function hateComment(type: number, oid: number, rpid: number, action: number): Promise<ActionResult> {
+export async function hateComment(type: number, oid: string, rpid: string, action: number): Promise<ActionResult> {
   let csrf: string = cookieMap['bili_jct'] || AppStorage.get<string>('csrf') || '';
   if (!csrf) {
     console.warn('[CommentApi] hateComment: csrf 为空');
@@ -265,7 +265,7 @@ export async function hateComment(type: number, oid: number, rpid: number, actio
  * @param types  评论区类型数组 1=视频，12=专栏，17=动态，默认为[1]
  * @returns 评论总数（根评论数）
  */
-export async function getCommentCount(id: number, types: number[] = [1]): Promise<number> {
+export async function getCommentCount(id: string, types: number[] = [1]): Promise<number> {
   for (let i: number = 0; i < types.length; i++) {
     const type: number = types[i];
     const url: string = API_BASE + '/count?type=' + type + '&oid=' + id;
@@ -291,7 +291,7 @@ export async function getCommentCount(id: number, types: number[] = [1]): Promis
  * @returns      当前页评论列表 + 根评论总数
  */
 export async function getCommentList(
-  id: number,
+  id: string,
   pn: number,
   ps: number = 20,
   sort: number = 1,
@@ -373,8 +373,8 @@ export async function getCommentList(
  */
 export async function getCommentReplies(
   type: number,
-  oid: number,
-  root: number,
+  oid: string,
+  root: string,
   pn: number,
   ps: number = 20
 ): Promise<PagedReplies> {

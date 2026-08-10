@@ -136,7 +136,6 @@ struct Index {
             } else if (status === LoginCheckStatus.VALID) {
               getMyAccountInfo().then((info: MyAccountInfo | null) => {
                 AppStorage.set<number>('mid', info?.mid)
-                AppStorage.set<MyAccountInfo | null>('myself', info)
               })
             } else if (status === LoginCheckStatus.ERROR) {
               this.getUIContext().getPromptAction().showToast({ message: '网络错误！' });

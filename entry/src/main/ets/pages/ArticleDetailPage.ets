@@ -20,7 +20,7 @@ export struct ArticleDetailPage {
 
         //评论区页
         Column() {
-          CommentSection({ aid: this.pageParam.cvid, type: [12] })
+          CommentSection({ aid: this.pageParam.cvid.toString(), type: [12] })
         }
       }
       .indicator(false)

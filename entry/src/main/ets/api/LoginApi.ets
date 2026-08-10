@@ -638,6 +638,7 @@ export async function getMyAccountInfo(): Promise<MyAccountInfo | null> {
     };
 
     console.info('[Account] 获取成功: mid=' + info.mid + ' uname=' + info.uname);
+    AppStorage.set<MyAccountInfo | null>('myself', info)
     return info;
   } catch (e) {
     console.error('[Account] 获取信息异常:', JSON.stringify(e));

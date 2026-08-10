@@ -30,7 +30,6 @@ import vibrator from '@ohos.vibrator';
 import { audio as harmoniousAudio } from '@kit.AudioKit';
 import { LengthMetrics, window } from '@kit.ArkUI';
 import { applyDefaultPlayerOptions, setupPlayerHeaders } from '../utils/VideoPlayerUtils';
-import { VideoPlayerControls } from '../components/VideoPlayerControls';
 import { VideoPlayerMoreSheetContent } from '../components/VideoPlayerMoreSheetContent';
 
 @Component
@@ -346,31 +345,11 @@ export struct VideoPlayerPage {
         })
 
         // ── Controls 覆盖层 ──
-        VideoPlayerControls({
-          isPlaying: this.isPlaying,
-          danmakuEnabled: this.danmakuEnabled,
-          onBack: (): void => {
-            this.clearControlsTimer();
-            this.pageStack.pop();
-          },
-          onMore: (): void => {
-            this.clearControlsTimer();
-            this.openMoreSheet();
-          },
-          onToggleDanmaku: (): void => {
-            this.toggleDanmaku();
-          },
-          onTogglePlayPause: (): void => {
-            this.togglePlayPause();
-            this.clearControlsTimer();
-            this.showControlsWithTimer();
-          },
-          onHideControls: (): void => {
-            this.hideControls();
-          }
-        })
-          .visibility(this.showControls ? Visibility.Visible : Visibility.Hidden)
-          .animation({ duration: 300, curve: Curve.EaseOut })
+        Column() {
+          this.ControlsOverlay()
+        }
+        .visibility(this.showControls ? Visibility.Visible : Visibility.Hidden)
+        .animation({ duration: 100, curve: Curve.EaseOut })
       }
       .width('100%')
       .height('100%')
@@ -530,6 +509,109 @@ export struct VideoPlayerPage {
     } else {
       this.showControlsWithTimer();
     }
+  }
+
+  @Builder
+  ControlsOverlay() {
+    Column() {
+      Row() {
+        Button() {
+          Text('←').fontSize(22).fontColor(Color.White)
+        }
+        .width(44)
+        .height(44)
+        .backgroundColor('rgba(0,0,0,0.45)')
+        .borderRadius(22)
+        .onClick(() => {
+          this.clearControlsTimer();
+          this.pageStack.pop();
+        })
+
+        Blank()
+      }
+      .width('100%')
+      .padding({ left: 16, top: 56 })
+
+      Blank()
+
+      Row() {
+        Button() {
+          Column() {
+            Text("∷")
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(Color.White)
+            Text("更多")
+              .fontSize(7)
+              .fontColor(Color.White)
+              .margin({ top: 8 })
+          }
+        }
+        .width(56)
+        .height(56)
+        .backgroundColor('rgba(0,0,0,0.45)')
+        .borderRadius(28)
+        .onClick(() => {
+          this.clearControlsTimer();
+          this.openMoreSheet();
+        })
+
+        Blank()
+
+        Button() {
+          Column() {
+            SymbolGlyph($r("sys.symbol.sort"))
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor([this.danmakuEnabled ? '#FF69B4' : Color.White])
+            Text(this.danmakuEnabled ? '弹幕开' : '弹幕关')
+              .fontSize(7)
+              .fontColor(this.danmakuEnabled ? '#FF69B4' : Color.White)
+              .margin({ top: 8 })
+          }
+        }
+        .width(56)
+        .height(56)
+        .backgroundColor(
+          this.danmakuEnabled ? 'rgba(255,105,180,0.30)' : 'rgba(0,0,0,0.45)'
+        )
+        .borderRadius(28)
+        .onClick(() => {
+          this.toggleDanmaku();
+        })
+      }
+      .width('100%')
+      .padding({ left: 24, right: 24 })
+
+      Blank()
+
+      Row() {
+        Blank()
+        Button() {
+          SymbolGlyph(
+            this.isPlaying ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_circle_fill"))
+            .fontSize(20).fontColor([Color.White])
+        }
+        .width(64)
+        .height(64)
+        .backgroundColor('rgba(0,0,0,0.45)')
+        .borderRadius(32)
+        .onClick(() => {
+          this.togglePlayPause();
+          this.clearControlsTimer();
+          this.showControlsWithTimer();
+        })
+        Blank()
+      }
+      .width('100%')
+      .padding({ bottom: 56 })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('rgba(0,0,0,0.30)')
+    .onClick(() => {
+      this.hideControls();
+    })
   }
 
   @Builder

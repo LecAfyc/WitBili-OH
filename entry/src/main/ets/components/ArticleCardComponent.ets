@@ -4,6 +4,7 @@
 
 import { ArticleCard } from '../model/ContentCard';
 
+@Reusable
 @Component
 export struct ArticleCardComponent {
   // ===== 对外属性 =====
@@ -11,7 +12,10 @@ export struct ArticleCardComponent {
   @Prop color: string = "";
   @Consume('pageStack') pageStack: NavPathStack;
 
-  // ===== 工具方法 =====
+  aboutToReuse(params: Record<string, Object>): void {
+    this.card = params.card as ArticleCard;
+    this.color = params.color as string;
+  }
 
   // ===== 构建 =====
   build() {
@@ -120,6 +124,9 @@ export struct ArticleCardComponent {
    * 太长时截取前 4 位显示
    */
   private formatView(view: string): string {
+    if (view === undefined || view === null) {
+      return '';
+    }
     if (view.length > 12) {
       return view.substring(0, 4) + '..';
     }

@@ -1,8 +1,6 @@
 /**
  * 视频播放器「更多」面板内容组件
  *
- * 包含进度调整、倍速选择、音量/亮度调节、清晰度切换、时间/电量信息。
- * 通过 @Prop 接收状态，通过回调通知父页面操作。
  */
 
 import { VideoQuality } from '../api/VideoDetailApi';
@@ -98,6 +96,7 @@ export struct VideoPlayerMoreSheetContent {
             .layoutWeight(1)
             .onChange((value: number, mode: SliderChangeMode) => {
               if (mode === SliderChangeMode.Moving) {
+                this.currentProgress = value;
                 this.onSeekStart();
               } else {
                 this.onSeek(value);

@@ -76,7 +76,7 @@ export struct RcmdPage {
       .alignItems(HorizontalAlign.Center)
     } else if (this.videoListCount === 0) {
       Column() {
-        Text('󰁕 TRACK LOST').fontSize(40)
+        Text('TRACK LOST').fontSize(40)
         Text(this.errorMessage)
           .fontSize(14)
           .fontColor('#888888')
@@ -163,7 +163,7 @@ export struct RcmdPage {
       }
     } catch (e) {
       console.error('[Index] 加载失败:', JSON.stringify(e));
-      this.errorMessage = '网络开小差了\n下拉重试';
+      this.errorMessage = '网络错误';
     } finally {
       this.isLoading = false;
       this.isRefreshing = false;

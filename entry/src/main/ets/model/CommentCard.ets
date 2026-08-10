@@ -2,8 +2,8 @@ import { UserCard } from "./UserCard";
 
 
 export class SingleComment {
-  rpid: number = 0; //评论id
-  oid: number = 0; //评论区对象id（视频aid等）
+  rpid: string = ''; //评论id（字符串避免大整数溢出）
+  oid: string = ''; //评论区对象id（视频aid等，字符串避免大整数溢出）
   sender: UserCard = new UserCard(); //发送者
   isOnTop: boolean = false; //是否置顶，置顶的要在内容开头加一个“置顶”标识
   time_desc: string = ""; //后端返回的已格式化时间
@@ -19,7 +19,7 @@ export class SingleComment {
 
   constructor(sender?: UserCard, isOnTop?: boolean, time_desc?: string, ip_desc?: string, message?: string,
     memberMap?: Map<string, UserCard>, emoteMap?: Map<string, string>, pictures?: string[], likes?: number,
-    replys?: number, rpid?: number, action?: number) {
+    replys?: number, rpid?: string, action?: number) {
     if (sender !== undefined) {
       this.sender = sender;
     }

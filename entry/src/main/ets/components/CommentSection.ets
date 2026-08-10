@@ -13,7 +13,7 @@ import { BasicDataSource } from '../utils/BasicDataSource';
 @Component
 export struct CommentSection {
   @Consume('pageStack') pageStack: NavPathStack;
-  @Prop @Watch('onAidChanged') aid: number = 0;
+  @Prop @Watch('onAidChanged') aid: string = '';
   @Prop type: number[] = [1];
   @State commentCount: number = 0;
   private commentDS: BasicDataSource<SingleComment> = new BasicDataSource<SingleComment>();
@@ -34,14 +34,14 @@ export struct CommentSection {
       this.type = [1];
     }
     console.info('[CommentSection] aboutToAppear, aid=' + this.aid);
-    if (this.aid > 0) {
+    if (this.aid !== '') {
       this.loadComments(true);
     }
   }
 
   onAidChanged(): void {
     console.info('[CommentSection] onAidChanged, aid=' + this.aid + ', firstLoad=' + this.firstLoad);
-    if (this.aid > 0 && this.firstLoad) {
+    if (this.aid !== '' && this.firstLoad) {
       this.loadComments(true);
     }
   }
@@ -165,7 +165,7 @@ export struct CommentSection {
   }
 
   private async loadComments(isRefresh: boolean): Promise<void> {
-    if (this.isLoading || this.aid <= 0) {
+    if (this.isLoading || this.aid === '') {
       return;
     }
     this.isLoading = true;

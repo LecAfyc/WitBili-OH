@@ -25,6 +25,7 @@ interface Seg {
 }
 
 // ===== 组件 =====
+@Reusable
 @Component
 export struct CommentCardComponent {
   @Consume('pageStack') pageStack: NavPathStack;
@@ -37,6 +38,12 @@ export struct CommentCardComponent {
   bigEmojiSize = 25;
   picSize = 55;
   maxLines = 5;
+
+  aboutToReuse(params: Record<string, Object>): void {
+    this.comment = params.comment as SingleComment;
+    this.isExpand = params.isExpand as boolean;
+    this.showReplies = params.showReplies as boolean;
+  }
 
   // ----------------------------  解析  ----------------------------
 
@@ -296,7 +303,7 @@ export struct CommentCardComponent {
 
   // ===== 点赞/点踩乐观更新 =====
   private async onLikeClick(): Promise<void> {
-    if (this.comment.oid <= 0 || this.comment.rpid <= 0) {
+    if (this.comment.oid === '' || this.comment.rpid === '') {
       this.toast('评论信息不完整');
       return;
     }
@@ -333,7 +340,7 @@ export struct CommentCardComponent {
   // ----------------------------  数字格式化  ----------------------------
 
   private async onHateClick(): Promise<void> {
-    if (this.comment.oid <= 0 || this.comment.rpid <= 0) {
+    if (this.comment.oid === '' || this.comment.rpid === '') {
       this.toast('评论信息不完整');
       return;
     }

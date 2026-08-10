@@ -4,6 +4,7 @@
 
 import { VideoCard } from '../model/ContentCard';
 
+@Reusable
 @Component
 export struct VideoCardComponent {
   // ===== 对外属性 =====
@@ -11,7 +12,10 @@ export struct VideoCardComponent {
   @Prop color: string = "";
   @Consume('pageStack') pageStack: NavPathStack;
 
-  // ===== 工具方法 =====
+  aboutToReuse(params: Record<string, Object>): void {
+    this.card = params.card as VideoCard;
+    this.color = params.color as string;
+  }
 
   // ===== 构建 =====
   build() {
@@ -111,6 +115,9 @@ export struct VideoCardComponent {
    * 太长时截取前 4 位显示
    */
   private formatView(view: string): string {
+    if (view === undefined || view === null) {
+      return '';
+    }
     if (view.length > 12) {
       return view.substring(0, 4) + '..';
     }

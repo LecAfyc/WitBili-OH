@@ -27,7 +27,12 @@ export struct DynamicDetailPage {
         Column() {
 
           if (this.isLoading) {
-            LoadingProgress().width(40).height(40).color('#FB7299')
+            Column() {
+              LoadingProgress().width(40).height(40).color('#FB7299')
+            }
+            .width('100%').height('100%')
+            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Center)
           } else {
             // 以单个可滚动视图展示完整动态
             Scroll() {
@@ -54,7 +59,7 @@ export struct DynamicDetailPage {
 
         // ───── 第 2 页：评论区（type=11 为动态评论区类型） ─────
         Column() {
-          if (this.pageParam.comment_id > 0) {
+          if (this.pageParam.comment_id !== '') {
             CommentSection({
               aid: this.pageParam.comment_id,
               type: this.pageParam.comment_type > 0
@@ -111,7 +116,7 @@ export struct DynamicDetailPage {
   /**
    * 从 API 刷新动态详情，补齐 API 可能返回的额外字段
    */
-  private async refreshDetail(dyid: number): Promise<void> {
+  private async refreshDetail(dyid: string): Promise<void> {
     try {
       const detail: Dynamic | null = await getDynamicDetail(dyid);
       if (detail) {
@@ -123,7 +128,7 @@ export struct DynamicDetailPage {
           detail.emoteMap = this.pageParam.emoteMap;
           detail.memberMap = this.pageParam.memberMap;
         }
-        if (!detail.comment_id && this.pageParam.comment_id > 0) {
+        if (!detail.comment_id && this.pageParam.comment_id !== '') {
           detail.comment_id = this.pageParam.comment_id;
           detail.comment_type = this.pageParam.comment_type;
         }

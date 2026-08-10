@@ -21,7 +21,7 @@ export struct VideoDetailPage {
 
         //评论区页
         Column() {
-          CommentSection({ aid: this.pageParam.aid, type: [1, 5] })
+          CommentSection({ aid: this.pageParam.aid.toString(), type: [1, 5] })
         }
 
         //视频推荐页

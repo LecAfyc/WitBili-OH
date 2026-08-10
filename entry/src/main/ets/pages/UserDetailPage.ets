@@ -600,7 +600,9 @@ export struct UserDetailPage {
         }
 
         Column() {
-          DynamicSection({ mid: this.userDetail.mid })
+          if (this.userDetail.mid > 0) {
+            DynamicSection({ mid: this.userDetail.mid })
+          }
         }
 
         //视频投稿页
