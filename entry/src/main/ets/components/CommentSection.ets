@@ -186,6 +186,13 @@ export struct CommentSection {
 
       const result = await getCommentList(this.aid, this.currentPage, 10, this.currentSort, this.type);
 
+      const activeType: number = this.type[0];
+
+      for (let i = 0; i < result.list.length; i++) {
+        result.list[i].oid = this.aid;
+        result.list[i].type = activeType;
+      }
+
       if (isRefresh) {
         this.commentDS.resetData(result.list);
         this.commentCount = this.commentDS.totalCount();

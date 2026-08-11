@@ -326,7 +326,7 @@ export struct CommentCardComponent {
     }
 
     let apiAction: number = this.comment.action === 1 ? 1 : 0;
-    let result = await likeComment(1, this.comment.oid, this.comment.rpid, apiAction);
+    let result = await likeComment(this.comment.type, this.comment.oid, this.comment.rpid, apiAction);
     if (result.success) {
       this.toast(result.message);
     } else {
@@ -362,7 +362,7 @@ export struct CommentCardComponent {
     }
 
     let apiAction: number = this.comment.action === 2 ? 1 : 0;
-    let result = await hateComment(1, this.comment.oid, this.comment.rpid, apiAction);
+    let result = await hateComment(this.comment.type, this.comment.oid, this.comment.rpid, apiAction);
     if (result.success) {
       this.toast(result.message);
     } else {

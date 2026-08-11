@@ -33,15 +33,13 @@ export class BasicDataSource<T> implements IDataSource {
 
   /** 追加数据（用于加载更多） */
   public appendData(items: T[]): void {
-    let arr: T[] = [];
-    for (let i: number = 0; i < this.dataArray.length; i++) {
-      arr.push(this.dataArray[i]);
+    const oldLen: number = this.dataArray.length;
+    for (let i: number = 0; i < items.length; i++) {
+      this.dataArray.push(items[i]);
     }
     for (let i: number = 0; i < items.length; i++) {
-      arr.push(items[i]);
+      this.onDataAdd(oldLen + i);
     }
-    this.dataArray = arr;
-    this.notifyDataReload();
   }
 
   /** 删除指定位置的一条数据 */
@@ -49,14 +47,8 @@ export class BasicDataSource<T> implements IDataSource {
     if (index < 0 || index >= this.dataArray.length) {
       return;
     }
-    let arr: T[] = [];
-    for (let i: number = 0; i < this.dataArray.length; i++) {
-      if (i !== index) {
-        arr.push(this.dataArray[i]);
-      }
-    }
-    this.dataArray = arr;
-    this.notifyDataReload();
+    this.dataArray.splice(index, 1);
+    this.onDataDelete(index);
   }
 
   /** 获取底层数组（只读） */
@@ -64,16 +56,14 @@ export class BasicDataSource<T> implements IDataSource {
     return this.dataArray;
   }
 
-  /** 截断到指定长度 */
+  /** 截断到指定长度（删除头部多余项） */
   public trimTo(maxLen: number): void {
     if (this.dataArray.length > maxLen) {
-      let arr: T[] = [];
-      let start: number = this.dataArray.length - maxLen;
-      for (let i: number = start; i < this.dataArray.length; i++) {
-        arr.push(this.dataArray[i]);
+      const removeCount: number = this.dataArray.length - maxLen;
+      this.dataArray.splice(0, removeCount);
+      for (let i: number = 0; i < removeCount; i++) {
+        this.onDataDelete(0);
       }
-      this.dataArray = arr;
-      this.notifyDataReload();
     }
   }
 

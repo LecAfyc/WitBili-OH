@@ -4,6 +4,7 @@ import { UserCard } from "./UserCard";
 export class SingleComment {
   rpid: string = ''; //评论id（字符串避免大整数溢出）
   oid: string = ''; //评论区对象id（视频aid等，字符串避免大整数溢出）
+  type: number = 1; //评论区类型（1=视频 12=专栏 17=动态）
   sender: UserCard = new UserCard(); //发送者
   isOnTop: boolean = false; //是否置顶，置顶的要在内容开头加一个“置顶”标识
   time_desc: string = ""; //后端返回的已格式化时间

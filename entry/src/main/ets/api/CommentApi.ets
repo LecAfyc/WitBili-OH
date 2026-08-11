@@ -53,7 +53,7 @@ function parseCommentItem(item: Record<string, Object>): SingleComment {
   }
 
   // --- 顶层字段 ---
-  comment.oid = (item['oid'] as number)?.toString() ?? '';
+  comment.oid = String(item['oid'] ?? '');
   comment.rpid = String(item['rpid'] ?? '');
 
   // --- reply_control → time_desc / ip_desc ---

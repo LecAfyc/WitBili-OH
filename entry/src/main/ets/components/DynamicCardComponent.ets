@@ -42,7 +42,6 @@ interface Seg {
 }
 
 // ===== 组件 =====
-@Reusable
 @Component
 export struct DynamicCardComponent {
   @Consume('pageStack') pageStack: NavPathStack;
@@ -55,14 +54,6 @@ export struct DynamicCardComponent {
   private readonly fs: number = 13;
   private readonly lh: number = 20;
   private readonly maxLines: number = 4;
-
-  aboutToReuse(params: Record<string, Object>): void {
-    this.dynamic = params.dynamic as Dynamic;
-    this.isExpand = params.isExpand as boolean;
-    this.isForwarded = params.isForwarded as boolean;
-    this.isLiked = this.dynamic.stats.liked;
-    this.likeCount = this.dynamic.stats.like;
-  }
 
   // ----------------------------  富文本解析  ----------------------------
 

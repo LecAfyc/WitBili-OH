@@ -17,6 +17,8 @@ const MIXIN_KEY_ENC_TAB: number[] = [
 // 备用 raw key（当网络获取失败时使用）
 const FALLBACK_RAW_KEY: string = 'c1a72d2c5d4e8b7f6a3b9e0d8f7c6a5b';
 
+const WBI_RAW_KEY_STORAGE: string = 'WbiRawKey';
+
 /**
  * MD5 消息摘要（返回 32 位小写十六进制字符串）
  */
@@ -154,12 +156,15 @@ function buildQueryString(params: Record<string, string>): string {
  * @returns 签名后的参数字典
  */
 async function encWbiParams(params: Record<string, string | number>): Promise<Record<string, string>> {
-  let rawKey: string;
-  try {
-    rawKey = await fetchWBIRawKey();
-  } catch (e) {
-    console.warn('[WbiSign] 获取 key 失败，使用备用 key');
-    rawKey = FALLBACK_RAW_KEY;
+  let rawKey: string = AppStorage.get<string>(WBI_RAW_KEY_STORAGE) ?? '';
+  if (!rawKey) {
+    try {
+      rawKey = await fetchWBIRawKey();
+      AppStorage.setOrCreate(WBI_RAW_KEY_STORAGE, rawKey);
+    } catch (e) {
+      console.warn('[WbiSign] 获取 key 失败，使用备用 key');
+      rawKey = FALLBACK_RAW_KEY;
+    }
   }
 
   let mixinKey: string = getMixinKey(rawKey);

@@ -99,7 +99,7 @@ export async function getDynamicFeed(
     const emptyResult: DynamicListResult = { list: [], offset: '', updateBaseline: '' };
     return emptyResult;
   }
-  printStringByLines("[Dynamics] content=" + JSON.stringify(resp.data));
+  // printStringByLines("[Dynamics] content=" + JSON.stringify(resp.data));
   return parseDynamicList(resp.data as Record<string, Object>);
 }
 
@@ -135,7 +135,7 @@ export async function getUserDynamic(
     const emptyResult: DynamicListResult = { list: [], offset: '', updateBaseline: '' };
     return emptyResult;
   }
-  printStringByLines("[UserDynamics] content=" + JSON.stringify(resp.data));
+  // printStringByLines("[UserDynamics] content=" + JSON.stringify(resp.data));
 
   const data = resp.data as Record<string, Object>;
   const hasMore: boolean = (data['has_more'] as boolean) ?? false;

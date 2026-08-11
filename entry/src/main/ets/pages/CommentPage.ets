@@ -104,7 +104,7 @@ export struct CommentPage {
     this.isLoading = true;
 
     try {
-      let result = await getCommentReplies(1, this.pageParam.oid, this.pageParam.rpid, 1, 20);
+      let result = await getCommentReplies(this.pageParam.type, this.pageParam.oid, this.pageParam.rpid, 1, 20);
       this.replyDS.resetData(result.list);
       this.replyCount = this.replyDS.totalCount();
       console.info("[CommentPage] replies loaded: " + result.list.length + " total=" + result.total);
