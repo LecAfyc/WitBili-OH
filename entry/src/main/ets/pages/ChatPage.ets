@@ -236,7 +236,7 @@ export struct ChatPage {
   // ==========================
   @Builder
   RecallMessage() {
-    Text('消息已被撤回')
+    Text('↑上条消息已被撤回')
       .fontSize(12)
       .fontColor('#888888')
       .fontStyle(FontStyle.Italic)
@@ -253,7 +253,7 @@ export struct ChatPage {
         VideoCardComponent({ card: msg.videoCard })
       } else {
         // 降级：显示文字
-        Text('[视频分享]')
+        Text('[视频分享_解析失败]')
           .fontSize(12)
           .fontColor('#888888')
           .padding({ top: 4, bottom: 4, left: 12, right: 12 })
