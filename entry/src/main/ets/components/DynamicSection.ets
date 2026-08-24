@@ -157,6 +157,7 @@ export struct DynamicSection {
           .focusable(true)
           .focusOnTouch(true)
           .defaultFocus(true)
+          .cachedCount(1)
         }
         .onRefreshing(() => {
           this.handleRefresh();
@@ -204,7 +205,6 @@ export struct DynamicSection {
           }
         } else {
           this.dynamicDS.appendData(result.list);
-          this.dynamicDS.trimTo(50);
           this.dynamicCount = this.dynamicDS.totalCount();
         }
 
@@ -219,7 +219,6 @@ export struct DynamicSection {
           this.dynamicCount = this.dynamicDS.totalCount();
         } else {
           this.dynamicDS.appendData(result.list);
-          this.dynamicDS.trimTo(50);
           this.dynamicCount = this.dynamicDS.totalCount();
         }
 

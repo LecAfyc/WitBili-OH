@@ -130,6 +130,7 @@ export struct MessageListPage {
       .focusable(true)
       .focusOnTouch(true)
       .defaultFocus(true)
+      .cachedCount(1)
     }
   }
 

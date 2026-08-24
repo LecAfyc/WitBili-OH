@@ -97,6 +97,7 @@ export struct VideoRelatedRecommend {
         .layoutWeight(1)
         .edgeEffect(EdgeEffect.Spring)
         .padding({ left: 16, right: 16 })
+        .cachedCount(1)
       }
     }
     .width('100%')

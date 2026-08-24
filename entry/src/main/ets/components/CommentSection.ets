@@ -155,6 +155,7 @@ export struct CommentSection {
         .edgeEffect(EdgeEffect.Spring)
         .fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(20) })
         .padding({ left: 14, right: 14 })
+        .cachedCount(1)
       }
       .onRefreshing(() => {
         this.handleRefresh();
@@ -198,7 +199,6 @@ export struct CommentSection {
         this.commentCount = this.commentDS.totalCount();
       } else {
         this.commentDS.appendData(result.list);
-        this.commentDS.trimTo(50);
         this.commentCount = this.commentDS.totalCount();
       }
 

@@ -125,6 +125,7 @@ export struct SearchResultPage {
           .focusable(true)
           .focusOnTouch(true)
           .defaultFocus(true)
+          .cachedCount(1)
         }
 
         //专栏搜索页
@@ -161,6 +162,7 @@ export struct SearchResultPage {
           .focusable(true)
           .focusOnTouch(true)
           .defaultFocus(true)
+          .cachedCount(1)
         }
 
         //用户搜索页
@@ -197,6 +199,7 @@ export struct SearchResultPage {
           .focusable(true)
           .focusOnTouch(true)
           .defaultFocus(true)
+          .cachedCount(1)
         }
       }
       .indicator(false)

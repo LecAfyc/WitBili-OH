@@ -30,6 +30,8 @@ PersistentStorage.persistProp('AccountData', 'null');
 PersistentStorage.persistProp('isAgreementAccepted', false);
 PersistentStorage.persistProp('refresh_token', '');
 PersistentStorage.persistProp('SearchHistory', '[]');
+PersistentStorage.persistProp('ignoredUpdateVersionCode', 0);
+PersistentStorage.persistProp('shownBroadcastTimestamps', '[]');
 AppStorage.setOrCreate<number>('mid', 0);
 AppStorage.setOrCreate<MyAccountInfo | null>('myself', null);
 

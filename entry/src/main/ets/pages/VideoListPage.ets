@@ -202,6 +202,7 @@ export struct VideoListPage {
         .focusable(true)
         .focusOnTouch(true)
         .defaultFocus(true)
+        .cachedCount(1)
       }
       .onRefreshing(() => {
         this.handleRefresh();
@@ -241,7 +242,6 @@ export struct VideoListPage {
       if (this.isCollection() && this.mlid > 0) {
         let result = await getFavResourceList(this.mlid, 1, 20);
         this.videoDS.resetData(result.videos);
-        this.videoDS.trimTo(50);
         this.videoListCount = this.videoDS.totalCount();
         this.hasMore = result.hasMore;
         if (this.videoListCount === 0) {
@@ -250,7 +250,6 @@ export struct VideoListPage {
       } else if (this.isHistory()) {
         let result = await getHistoryList(0, 0, 20);
         this.videoDS.resetData(result.items);
-        this.videoDS.trimTo(50);
         this.videoListCount = this.videoDS.totalCount();
         this.hasMore = result.hasMore;
         this.historyCursorMax = result.cursor.max;
@@ -293,7 +292,6 @@ export struct VideoListPage {
         let nextPage: number = this.currentPage + 1;
         let result = await getFavResourceList(this.mlid, nextPage, 20);
         this.videoDS.appendData(result.videos);
-        this.videoDS.trimTo(50);
         this.videoListCount = this.videoDS.totalCount();
         this.hasMore = result.hasMore;
         this.currentPage = nextPage;
@@ -304,7 +302,6 @@ export struct VideoListPage {
           20
         );
         this.videoDS.appendData(result.items);
-        this.videoDS.trimTo(50);
         this.videoListCount = this.videoDS.totalCount();
         this.hasMore = result.hasMore;
         this.historyCursorMax = result.cursor.max;

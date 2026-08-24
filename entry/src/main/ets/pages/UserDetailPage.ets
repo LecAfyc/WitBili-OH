@@ -95,7 +95,6 @@ export struct UserDetailPage {
       let result = await getUserVideos(this.pageParam.mid, this.videoPage, 30);
       if (result.videos.length > 0) {
         this.videoDS.appendData(result.videos);
-        this.videoDS.trimTo(50);
         this.videoCount = this.videoDS.totalCount();
         this.videoTotal = result.total;
         this.videoPage++;
@@ -122,7 +121,6 @@ export struct UserDetailPage {
       let result = await getUserArticles(this.pageParam.mid, this.articlePage, 30);
       if (result.articles.length > 0) {
         this.articleDS.appendData(result.articles);
-        this.articleDS.trimTo(50);
         this.articleCount = this.articleDS.totalCount();
         this.articleTotal = result.total;
         this.articlePage++;
@@ -262,7 +260,6 @@ export struct UserDetailPage {
         let result = await getUserFollowings(this.pageParam.mid, this.sheetPage, 50);
         let userList = result.users;
         this.sheetDS.appendData(userList);
-        this.sheetDS.trimTo(50);
         this.sheetContentCount = this.sheetDS.totalCount();
         this.sheetHasMore = this.sheetContentCount < result.total;
         this.sheetPage++;
@@ -272,7 +269,6 @@ export struct UserDetailPage {
         let result = await getUserFans(this.pageParam.mid, this.sheetPage, 50);
         let userList = result.users;
         this.sheetDS.appendData(userList);
-        this.sheetDS.trimTo(50);
         this.sheetContentCount = this.sheetDS.totalCount();
         this.sheetHasMore = this.sheetContentCount < result.total;
         this.sheetPage++;
@@ -366,6 +362,7 @@ export struct UserDetailPage {
         .focusable(true)
         .focusOnTouch(true)
         .defaultFocus(true)
+        .cachedCount(1)
       }
     }
     .width('100%')
@@ -666,6 +663,7 @@ export struct UserDetailPage {
           .focusable(true)
           .focusOnTouch(true)
           .defaultFocus(true)
+          .cachedCount(1)
         }
 
         //专栏投稿页
@@ -729,6 +727,7 @@ export struct UserDetailPage {
           .focusable(true)
           .focusOnTouch(true)
           .defaultFocus(true)
+          .cachedCount(1)
         }
       }
       .indicator(false)

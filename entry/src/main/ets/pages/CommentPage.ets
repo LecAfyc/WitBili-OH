@@ -81,6 +81,7 @@ export struct CommentPage {
       .focusable(true)
       .focusOnTouch(true)
       .defaultFocus(true)
+      .cachedCount(1)
     }
     .height("100%")
     .width("100%")

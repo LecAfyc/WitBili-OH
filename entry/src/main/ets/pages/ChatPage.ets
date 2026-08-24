@@ -167,6 +167,7 @@ export struct ChatPage {
       .focusable(true)
       .focusOnTouch(true)
       .defaultFocus(true)
+      .cachedCount(1)
     }
   }
 
