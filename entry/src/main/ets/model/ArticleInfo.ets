@@ -134,8 +134,8 @@ export class ArticleInfo {
   topImages: string[] = [];
   // ===== 评论区信息 =====
 
-  /** 关联的评论区 ID */
-  commentId: number = 0;
+  /** 关联的评论区 ID（字符串避免大整数溢出） */
+  commentId: string = '';
   /** 评论区类型（评论 API 需要此值） */
   commentType: number = 0;
 

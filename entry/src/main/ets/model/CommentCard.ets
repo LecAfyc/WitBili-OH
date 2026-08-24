@@ -14,7 +14,9 @@ export class SingleComment {
   emoteMap: Map<string, string> = new Map(); //表情转义符，"[表情名]" -> 图片链接的映射
   pictures: string[] = []; //评论附带的图片的url
   likes: number = 0; //点赞数
-  replys: number = 0; //回复数
+  replys: number = 0; //回复数（count：实际回复总数）
+  rcount: number = 0; //过滤后的回复数（rcount 字段存在时有效）
+  hasRcount: boolean = false; //是否存在 rcount 字段
   hotReply: string[] = ["", ""] //精选回复，0-2个
   action: number = 0; //当前用户操作：0=无 1=已点赞 2=已点踩
 

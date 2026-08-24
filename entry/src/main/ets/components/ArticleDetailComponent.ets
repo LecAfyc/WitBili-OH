@@ -178,19 +178,18 @@ export struct ArticleDetailComponent {
   /** 富文本段落（TYPE_TEXT_OPUS） */
   @Builder
   richTextParagraph(text: string) {
-    Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Start }) {
+    Text() {
       ForEach(this.parseRichText(text), (s: RichSeg) => {
         if (s.kind === RichSegKind.TEXT) {
-          Text(s.text).fontSize(this.fs).fontColor('#CCCCCC').lineHeight(this.lh).textAlign(TextAlign.Start)
+          Span(s.text).fontSize(this.fs).fontColor('#CCCCCC').lineHeight(this.lh)
         } else if (s.kind === RichSegKind.EMOJI) {
-          Image(s.emojiUrl!).width(s.emojiSize ?? 18).height(s.emojiSize ?? 18)
+          ImageSpan(s.emojiUrl!).width(s.emojiSize ?? 18).height(s.emojiSize ?? 18)
             .objectFit(ImageFit.Contain).margin({ left: 1, right: 1 })
         } else if (s.kind === RichSegKind.MENTION) {
-          Text(s.text)
+          Span(s.text)
             .fontSize(this.fs)
             .fontColor('#FB7299')
             .lineHeight(this.lh)
-            .textAlign(TextAlign.Start)
             .onClick(() => {
               if (s.userId && s.userId > 0) {
                 this.pageStack.pushPath({ name: 'UserDetailPage', param: new UserCard('Loading...', '', s.userId) });
@@ -199,6 +198,10 @@ export struct ArticleDetailComponent {
         }
       })
     }
+    .fontSize(this.fs)
+    .fontColor('#CCCCCC')
+    .lineHeight(this.lh)
+    .textAlign(TextAlign.Start)
     .width('100%')
   }
 

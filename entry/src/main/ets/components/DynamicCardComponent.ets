@@ -21,6 +21,7 @@
  * 确保 ArkTS 能正确触发 UI 刷新。
  */
 
+import { display } from '@kit.ArkUI';
 import { Dynamic, DynamicStats } from '../model/Dynamic';
 import { UserCard } from '../model/UserCard';
 import { VideoCard, ArticleCard } from '../model/ContentCard';
@@ -139,6 +140,34 @@ export struct DynamicCardComponent {
     return url;
   }
 
+  /** 判断折叠状态下正文是否超出 maxLines 行（用于显示「点击展开」） */
+  private isContentOverflow(): boolean {
+    let text: string = this.dynamic.message;
+    if (!text) {
+      return false;
+    }
+    try {
+      let density: number = display.getDefaultDisplaySync().densityPixels;
+      let widthVp: number = display.getDefaultDisplaySync().width / density - 52;
+      if (widthVp < 120) {
+        widthVp = 300;
+      }
+      let size: SizeOptions = this.getUIContext().getMeasureUtils().measureTextSize({
+        textContent: text,
+        fontSize: this.fs,
+        constraintWidth: widthVp
+      });
+      let h: number = 0;
+      if (typeof size.height === 'number') {
+        h = size.height;
+      }
+      let maxHPx: number = this.maxLines * this.lh * density;
+      return h > maxHPx;
+    } catch (e) {
+      return text.length > this.maxLines * 26;
+    }
+  }
+
   // ----------------------------  点赞  ----------------------------
 
   build() {
@@ -176,50 +205,48 @@ export struct DynamicCardComponent {
 
       // ===== 正文段（含表情/@，可折叠） =====
       if (this.dynamic.message) {
-        Stack() {
-          Column() {
-            Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Start }) {
-              ForEach(this.parseMessage(), (s: Seg) => {
-                if (s.kind === SegKind.TEXT) {
-                  Text(s.text)
-                    .fontSize(this.fs)
-                    .lineHeight(this.lh)
-                    .textAlign(TextAlign.Start)
-                } else if (s.kind === SegKind.EMOJI) {
-                  Image(s.emojiUrl!)
-                    .width(s.emojiSize ?? 18)
-                    .height(s.emojiSize ?? 18)
-                    .objectFit(ImageFit.Contain)
-                    .margin({ left: 1, right: 1 })
-                } else if (s.kind === SegKind.MENTION) {
-                  Text(s.text)
-                    .fontSize(this.fs)
-                    .fontColor('#FB7299')
-                    .lineHeight(this.lh)
-                    .textAlign(TextAlign.Start)
-                    .onClick(() => {
-                      console.info('[DynamicCard] mention tap: mid=' + s.userId);
-                      this.pageStack.pushPath({
-                        name: 'UserDetailPage',
-                        param: new UserCard('Loading...', '', s.userId)
-                      })
+        Column() {
+          Text() {
+            ForEach(this.parseMessage(), (s: Seg) => {
+              if (s.kind === SegKind.TEXT) {
+                Span(s.text)
+                  .fontSize(this.fs)
+                  .lineHeight(this.lh)
+              } else if (s.kind === SegKind.EMOJI) {
+                ImageSpan(s.emojiUrl!)
+                  .width(s.emojiSize ?? 18)
+                  .height(s.emojiSize ?? 18)
+                  .objectFit(ImageFit.Contain)
+                  .margin({ left: 1, right: 1 })
+              } else if (s.kind === SegKind.MENTION) {
+                Span(s.text)
+                  .fontSize(this.fs)
+                  .fontColor('#FB7299')
+                  .lineHeight(this.lh)
+                  .onClick(() => {
+                    console.info('[DynamicCard] mention tap: mid=' + s.userId);
+                    this.pageStack.pushPath({
+                      name: 'UserDetailPage',
+                      param: new UserCard('Loading...', '', s.userId)
                     })
-                }
-              })
-            }
-            .width('100%')
-            .padding({ left: 12, right: 12 })
+                  })
+              }
+            })
           }
+          .fontSize(this.fs)
+          .lineHeight(this.lh)
+          .textAlign(TextAlign.Start)
           .width('100%')
-          .constraintSize({ maxHeight: this.isExpand ? 9999 : this.maxLines * this.lh })
-          .clip(true)
+          .padding({ left: 12, right: 12 })
+          .maxLines(this.isExpand ? 1000 : this.maxLines)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-          // 折叠时右下角省略号
-          if (!this.isExpand) {
-            Text('...')
-              .fontSize(this.fs)
-              .fontColor('#AAAAAA')
-              .position({ bottom: 0, right: 14 })
+          // 折叠且超出时显示「点击展开」提示
+          if (!this.isExpand && this.isContentOverflow()) {
+            Text('点击展开')
+              .fontSize(11)
+              .fontColor('#FB7299')
+              .padding({ left: 7, top: 4, bottom: 2 })
           }
         }
         .width('100%')

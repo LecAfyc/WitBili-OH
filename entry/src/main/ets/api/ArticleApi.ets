@@ -358,7 +358,7 @@ function tryParseFlatOpus(id: number, opusState: Record<string, Object>): Opus |
   opus.pubTime = (opusState['pub_time'] as string) ?? (opusState['publish_time'] as string) ?? '';
 
   // 评论区
-  opus.commentId = Number(opusState['comment_id'] ?? 0);
+  opus.commentId = String(opusState['comment_id_str'] ?? opusState['comment_id'] ?? '');
   opus.commentType = (opusState['comment_type'] as number) ?? 0;
 
   // 正文内容
@@ -417,7 +417,7 @@ function parseOpusDetail(id: number, detail: Record<string, Object>): Opus {
   // --- basic ---
   const basic: Record<string, Object> | undefined = detail['basic'] as Record<string, Object> | undefined;
   if (basic) {
-    opus.commentId = Number(basic['comment_id_str'] ?? basic['comment_id'] ?? 0);
+    opus.commentId = String(basic['comment_id_str'] ?? basic['comment_id'] ?? '');
     opus.commentType = (basic['comment_type'] as number) ?? 0;
   }
 

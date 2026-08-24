@@ -104,6 +104,10 @@ function extractLastMsgPreview(lastMsg: Record<string, Object> | undefined): str
     return content;
   }
 
+  if (msgType === 2) {
+    return '[图片]';
+  }
+
   if (msgType === 11) {
     return '[视频分享]';
   }
@@ -289,6 +293,11 @@ export async function fetchMessages(talkerId: number): Promise<FetchMessagesResu
           bvid
         );
         msg.videoCard = videoCard;
+      }
+
+      // msg_type=2: 图片消息，content 为 {"url","width","height","size"}
+      if (msg.msgType === 2 && contentParsed) {
+        msg.imageUrl = (contentParsed['url'] as string) || '';
       }
 
       result.messages.push(msg);

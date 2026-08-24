@@ -183,6 +183,9 @@ export struct ChatPage {
       } else if (msg.msgType === 5) {
         // 撤回消息
         this.RecallMessage()
+      } else if (msg.msgType === 2) {
+        // 图片消息
+        this.ImageMessage(msg)
       } else if (msg.msgType === 11 || msg.msgType === 7) {
         // 视频分享
         this.VideoShareMessage(msg)
@@ -261,6 +264,32 @@ export struct ChatPage {
   }
 
   // ==========================
+  //        图片消息
+  // ==========================
+  @Builder
+  ImageMessage(msg: PrivateMessage) {
+    Column() {
+      if (msg.imageUrl !== '') {
+        Image(this.toThumb(msg.imageUrl))
+          .width(100)
+          .height(100)
+          .objectFit(ImageFit.Cover)
+          .borderRadius(8)
+          .onClick(() => {
+            this.pageStack.pushPath({ name: 'ImageViewer', param: msg.imageUrl });
+          })
+      } else {
+        // 降级：显示文字
+        Text('[图片]')
+          .fontSize(12)
+          .fontColor('#888888')
+          .padding({ top: 4, bottom: 4, left: 12, right: 12 })
+      }
+    }
+    .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+  }
+
+  // ==========================
   //        输入区域
   // ==========================
   @Builder
@@ -334,6 +363,14 @@ export struct ChatPage {
     } catch (e) {
       console.warn('[ChatPage] Toast 失败: ' + String(e));
     }
+  }
+
+  /** BFS 图片 URL 追加 @100w 获取缩略图 */
+  private toThumb(url: string): string {
+    if (url.indexOf('@') === -1) {
+      return url + '@100w';
+    }
+    return url;
   }
 
   // ===== 消息文本 + 表情解析 =====

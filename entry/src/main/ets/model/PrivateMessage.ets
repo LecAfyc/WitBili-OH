@@ -66,6 +66,7 @@ export class PrivateMessage {
   msgStatus: number = 0;
   emoteMap: Map<string, string> = new Map();
   videoCard: VideoCard | null = null;
+  imageUrl: string = ''; // 图片消息的原始图 URL（msg_type=2）
 
   constructor(senderUid?: number, receiverType?: number, receiverId?: number, msgType?: number,
     content?: string, contentParsed?: Record<string, Object> | null, msgSeqno?: number, timestamp?: number,

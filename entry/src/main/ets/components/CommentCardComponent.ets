@@ -6,6 +6,7 @@
  * isExpand=true  时展开：正文完整显示、不显示回复。
  */
 
+import { display } from '@kit.ArkUI';
 import { SingleComment } from '../model/CommentCard';
 import { UserCardComponent } from './UserCardComponent';
 import { likeComment, hateComment } from '../api/CommentApi';
@@ -42,7 +43,7 @@ export struct CommentCardComponent {
   aboutToReuse(params: Record<string, Object>): void {
     this.comment = params.comment as SingleComment;
     this.isExpand = params.isExpand as boolean;
-    this.showReplies = params.showReplies as boolean;
+    this.showReplies = (params.showReplies as boolean) ?? true;
   }
 
   // ----------------------------  解析  ----------------------------
@@ -130,6 +131,34 @@ export struct CommentCardComponent {
     return url;
   }
 
+  /** 判断折叠状态下正文是否超出 maxLines 行（用于显示「点击展开」） */
+  private isContentOverflow(): boolean {
+    let text: string = this.comment.message;
+    if (!text) {
+      return false;
+    }
+    try {
+      let density: number = display.getDefaultDisplaySync().densityPixels;
+      let widthVp: number = display.getDefaultDisplaySync().width / density - 52;
+      if (widthVp < 120) {
+        widthVp = 300;
+      }
+      let size: SizeOptions = this.getUIContext().getMeasureUtils().measureTextSize({
+        textContent: text,
+        fontSize: this.fs,
+        constraintWidth: widthVp
+      });
+      let h: number = 0;
+      if (typeof size.height === 'number') {
+        h = size.height;
+      }
+      let maxHPx: number = this.maxLines * this.lh * density;
+      return h > maxHPx;
+    } catch (e) {
+      return text.length > this.maxLines * 26;
+    }
+  }
+
   build() {
     Column() {
       // ── 发送者信息 ──
@@ -156,52 +185,47 @@ export struct CommentCardComponent {
       }
 
       // ── 正文段（含表情/@）──
-      // 用 Column + constraintSize + clip 实现 5 行截断
-      Stack() {
-        Column() {
-          Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Start }) {
-            ForEach(this.parseMessage(), (s: Seg) => {
-              if (s.kind === SegKind.TEXT) {
-                Text(s.text)
-                  .fontSize(this.fs)
-                  .lineHeight(this.lh)
-                  .textAlign(TextAlign.Start)
+      Column() {
+        Text() {
+          ForEach(this.parseMessage(), (s: Seg) => {
+            if (s.kind === SegKind.TEXT) {
+              Span(s.text)
+                .fontSize(this.fs)
+                .lineHeight(this.lh)
 
-              } else if (s.kind === SegKind.EMOJI) {
-                Image(s.emojiUrl!)
-                  .width(s.emojiSize || this.emojiSize)
-                  .height(s.emojiSize || this.emojiSize)
-                  .objectFit(ImageFit.Contain)
-                  .margin({ left: 1, right: 1 })
+            } else if (s.kind === SegKind.EMOJI) {
+              ImageSpan(s.emojiUrl!)
+                .width(s.emojiSize || this.emojiSize)
+                .height(s.emojiSize || this.emojiSize)
+                .objectFit(ImageFit.Contain)
+                .margin({ left: 1, right: 1 })
 
-              } else if (s.kind === SegKind.MENTION) {
-                Text(s.text)
-                  .fontSize(this.fs)
-                  .fontColor('#FB7299')
-                  .lineHeight(this.lh)
-                  .textAlign(TextAlign.Start)
-                  .onClick(() => {
-                    console.info('[CommentCard] mention tap: mid=' + s.userId);
-                    this.pageStack.pushPath({ name: "UserDetailPage", param: new UserCard("Loading...", "", s.userId) })
-                  })
-              }
-            })
-          }
-          .width('100%')
-          .padding({ left: 12, right: 12 })
+            } else if (s.kind === SegKind.MENTION) {
+              Span(s.text)
+                .fontSize(this.fs)
+                .fontColor('#FB7299')
+                .lineHeight(this.lh)
+                .onClick(() => {
+                  console.info('[CommentCard] mention tap: mid=' + s.userId);
+                  this.pageStack.pushPath({ name: "UserDetailPage", param: new UserCard("Loading...", "", s.userId) })
+                })
+            }
+          })
         }
+        .fontSize(this.fs)
+        .lineHeight(this.lh)
+        .textAlign(TextAlign.Start)
         .width('100%')
-        .constraintSize({
-          maxHeight: this.isExpand ? 9999 : this.maxLines * this.lh
-        })
-        .clip(true)
+        .padding({ left: 12, right: 12 })
+        .maxLines(this.isExpand ? 1000 : this.maxLines)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-        // 折叠时右下角加省略号
-        if (!this.isExpand) {
-          Text('...')
-            .fontSize(this.fs)
-            .fontColor('#AAAAAA')
-            .position({ bottom: 0, right: 14 })
+        // 折叠且超出时显示「点击展开」提示
+        if (!this.isExpand && this.isContentOverflow()) {
+          Text('点击展开')
+            .fontSize(11)
+            .fontColor('#FB7299')
+            .padding({ left: 12, top: 4, bottom: 2 })
         }
       }
       .width('100%')
@@ -285,10 +309,18 @@ export struct CommentCardComponent {
 
           // 回复数
           if (this.comment.replys > 0) {
-            Text(formatCount(this.comment.replys) + '条回复 ›')
-              .fontSize(11)
-              .fontColor('#FB7299')
-              .margin({ top: 4 })
+            if (this.comment.hasRcount && Math.max(0, this.comment.replys - this.comment.rcount) > 0) {
+              Text(formatCount(this.comment.rcount) + '条回复(过滤'
+                + formatCount(Math.max(0, this.comment.replys - this.comment.rcount)) + '条) ›')
+                .fontSize(11)
+                .fontColor('#FB7299')
+                .margin({ top: 4 })
+            } else {
+              Text(formatCount(this.comment.replys) + '条回复 ›')
+                .fontSize(11)
+                .fontColor('#FB7299')
+                .margin({ top: 4 })
+            }
           }
         }
         .padding({ left: 12, right: 12, top: 4 })

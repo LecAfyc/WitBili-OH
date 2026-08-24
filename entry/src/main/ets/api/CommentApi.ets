@@ -130,10 +130,16 @@ function parseCommentItem(item: Record<string, Object>): SingleComment {
 
   // --- 点赞 & 回复数 ---
   comment.likes = (item['like'] as number) ?? 0;
-  // count = 二级评论条数，rcount 也是，优先用 count
+  // count = 实际回复总数；rcount = 被阿瓦隆过滤后的回复数（可能存在）
   comment.replys = (item['count'] as number) ?? 0;
-  if (comment.replys === 0) {
-    comment.replys = (item['rcount'] as number) ?? 0;
+  const rcountVal: number = (item['rcount'] as number) ?? -1;
+  if (rcountVal >= 0) {
+    comment.hasRcount = true;
+    comment.rcount = rcountVal;
+  }
+  // 兼容：count 缺失时用 rcount 兜底
+  if (comment.replys === 0 && comment.hasRcount) {
+    comment.replys = comment.rcount;
   }
 
   // --- 热评（精选回复）：API 在 replies 字段中带最多 3 条预览 ——
