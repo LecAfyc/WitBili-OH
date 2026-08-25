@@ -17,7 +17,6 @@ export struct VideoPlayerMoreSheetContent {
   @Prop currentBrightness: number = 0.5;
   @Prop availableQualities: VideoQuality[] = [];
   @Prop currentQn: number = 80;
-  @Prop currentTimeDisplay: string = '';
   @Prop batteryLevel: number = 100;
   onSeek: (value: number) => void = (_v: number): void => {};
   onSeekStart: () => void = (): void => {};
@@ -262,7 +261,8 @@ export struct VideoPlayerMoreSheetContent {
     Row() {
       Column({ space: 4 }) {
         Text('当前时间').fontSize(11).fontColor('#888888')
-        Text(this.currentTimeDisplay)
+        TextClock()
+          .format('HH:mm')
           .fontSize(22).fontWeight(FontWeight.Bold).fontColor(Color.White)
       }
       .layoutWeight(1)

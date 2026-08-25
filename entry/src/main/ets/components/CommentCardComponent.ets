@@ -37,7 +37,7 @@ export struct CommentCardComponent {
   lh = 18;
   emojiSize = 18;
   bigEmojiSize = 25;
-  picSize = 55;
+  picSize = 75;
   maxLines = 5;
 
   aboutToReuse(params: Record<string, Object>): void {
@@ -225,7 +225,7 @@ export struct CommentCardComponent {
           Text('点击展开')
             .fontSize(11)
             .fontColor('#FB7299')
-            .padding({ left: 12, top: 4, bottom: 2 })
+            .padding({ top: 4, bottom: 2 })
         }
       }
       .width('100%')

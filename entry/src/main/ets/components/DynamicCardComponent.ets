@@ -234,7 +234,7 @@ export struct DynamicCardComponent {
             Text('点击展开')
               .fontSize(11)
               .fontColor('#FB7299')
-              .padding({ left: 7, top: 4, bottom: 2 })
+              .padding({ top: 4, bottom: 2 })
           }
         }
         .width('100%')

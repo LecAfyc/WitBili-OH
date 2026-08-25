@@ -79,7 +79,6 @@ export struct VideoPlayerPage {
   @State currentVolume: number = 0.8;
   @State currentBrightness: number = 0.5;
   @State batteryLevel: number = 100;
-  @State currentTimeDisplay: string = '';
   @State availableQualities: VideoQuality[] = [];
   @State currentQnName: string = '';
   // ===== 视频尺寸 =====
@@ -111,7 +110,7 @@ export struct VideoPlayerPage {
   // ===== 历史记录上报 =====
   private controlsTimerId: number | undefined = undefined;
   private moreProgressTimerId: number | undefined = undefined;
-  private timeTickTimerId: number | undefined = undefined;
+
 
   pause(): void {
     try {
@@ -365,7 +364,6 @@ export struct VideoPlayerPage {
         blurStyle: BlurStyle.BACKGROUND_THIN,
         onDisappear: () => {
           this.clearMoreProgressTimer();
-          this.clearTimeTickTimer();
           if (this.wasPlayingBeforeSheet) {
             this.resume();
           }
@@ -480,24 +478,12 @@ export struct VideoPlayerPage {
       }
     }, 500);
     this.initMoreSheetState();
-    this.updateTimeDisplay();
-    this.clearTimeTickTimer();
-    this.timeTickTimerId = setInterval(() => {
-      this.updateTimeDisplay();
-    }, 60000);
   }
 
   clearMoreProgressTimer(): void {
     if (this.moreProgressTimerId !== undefined) {
       clearInterval(this.moreProgressTimerId);
       this.moreProgressTimerId = undefined;
-    }
-  }
-
-  clearTimeTickTimer(): void {
-    if (this.timeTickTimerId !== undefined) {
-      clearInterval(this.timeTickTimerId);
-      this.timeTickTimerId = undefined;
     }
   }
 
@@ -625,7 +611,6 @@ export struct VideoPlayerPage {
       currentBrightness: this.currentBrightness,
       availableQualities: this.availableQualities,
       currentQn: this.qn,
-      currentTimeDisplay: this.currentTimeDisplay,
       batteryLevel: this.batteryLevel,
       onSeekStart: (): void => {
         this.isSeeking = true;
@@ -1091,13 +1076,6 @@ export struct VideoPlayerPage {
   // ===================================================================
   //  清理
   // ===================================================================
-
-  private updateTimeDisplay(): void {
-    let now: Date = new Date();
-    let h: string = now.getHours().toString().padStart(2, '0');
-    let m: string = now.getMinutes().toString().padStart(2, '0');
-    this.currentTimeDisplay = h + ':' + m;
-  }
 
   private initMoreSheetState(): void {
     // 电池
