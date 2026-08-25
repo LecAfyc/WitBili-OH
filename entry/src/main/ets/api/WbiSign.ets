@@ -1,12 +1,8 @@
-/**
- * Bilibili WBI 签名算法 —— 与 Python 版逻辑一致（ArkTS 合规）
- */
 
 import { cryptoFramework } from '@kit.CryptoArchitectureKit';
 import { buffer } from '@kit.ArkTS';
 import { http } from '@kit.NetworkKit';
 
-// mixin key 混淆表（与 Python 完全相同）
 const MIXIN_KEY_ENC_TAB: number[] = [
   46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
   27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
@@ -63,14 +59,12 @@ function getFileNameFromLink(link: string): string {
 
 /**
  * 去掉文件扩展名，只保留文件名主体（若无扩展名则返回整个文件名）
- * 与 Python 的 split('.')[0] 行为一致
  */
 function getFileFirstName(file: string): string {
   let dotIndex: number = file.indexOf('.');
   if (dotIndex >= 0) {
     return file.substring(0, dotIndex);
   }
-  // 无扩展名时返回原文件名，与 Python 一致
   return file;
 }
 
@@ -128,21 +122,18 @@ async function fetchWBIRawKey(): Promise<string> {
 
 /**
  * 将参数字典按 key 排序、过滤特殊字符、编码后生成 query 字符串
- * 与 Python 的 urlencode(params) 等价（空格编码为 '+'）
  */
 function buildQueryString(params: Record<string, string>): string {
   let sortedKeys: string[] = Object.keys(params).sort();
   let pairs: string[] = [];
   for (let key of sortedKeys) {
     let rawValue: string = params[key];
-    // 过滤掉字符 !'()* （与 Python 一致）
     let filteredValue: string = '';
     for (let ch of rawValue) {
       if ("!'()*".indexOf(ch) === -1) {
         filteredValue += ch;
       }
     }
-    // URL 编码，并将 %20 替换为 +，模拟 Python 的 quote_plus
     let encodedKey: string = encodeURIComponent(key).replace(/%20/g, '+');
     let encodedValue: string = encodeURIComponent(filteredValue).replace(/%20/g, '+');
     pairs.push(encodedKey + '=' + encodedValue);
@@ -232,7 +223,6 @@ export async function signWBI(url: string): Promise<string> {
   // 调用核心签名
   let signedParams: Record<string, string> = await encWbiParams(params);
 
-  // 对整个参数字典重新编码（w_rid 也会被包含，与 Python 行为一致）
   let finalQuery: string = buildQueryString(signedParams);
 
   return base + '?' + finalQuery;
