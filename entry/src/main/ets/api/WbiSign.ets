@@ -10,10 +10,10 @@ const MIXIN_KEY_ENC_TAB: number[] = [
   22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52
 ];
 
-// 备用 raw key（当网络获取失败时使用）
-const FALLBACK_RAW_KEY: string = 'c1a72d2c5d4e8b7f6a3b9e0d8f7c6a5b';
-
 const WBI_RAW_KEY_STORAGE: string = 'WbiRawKey';
+
+/** WBI raw key 的合法长度：img_key(32) + sub_key(32) */
+const WBI_RAW_KEY_LENGTH: number = 64;
 
 /**
  * MD5 消息摘要（返回 32 位小写十六进制字符串）
@@ -89,20 +89,22 @@ async function fetchWBIRawKey(): Promise<string> {
       (err: Error, data: http.HttpResponse) => {
         httpRequest.destroy();
         if (err) {
-          console.warn('[WbiSign] nav 请求失败，使用备用 key');
-          resolve(FALLBACK_RAW_KEY);
+          console.warn('[WbiSign] nav 请求失败，本次不缓存 key，下次重试');
+          resolve('');
           return;
         }
         try {
           let result: Record<string, Object> = JSON.parse(data.result as string) as Record<string, Object>;
           let navData: Record<string, Object> = result['data'] as Record<string, Object>;
           if (!navData) {
-            resolve(FALLBACK_RAW_KEY);
+            console.warn('[WbiSign] nav 无 data，本次不缓存 key');
+            resolve('');
             return;
           }
           let wbiImg: Record<string, string> = navData['wbi_img'] as Record<string, string>;
           if (!wbiImg) {
-            resolve(FALLBACK_RAW_KEY);
+            console.warn('[WbiSign] nav 无 wbi_img，本次不缓存 key');
+            resolve('');
             return;
           }
           let imgUrl: string = wbiImg['img_url'] || '';
@@ -112,8 +114,8 @@ async function fetchWBIRawKey(): Promise<string> {
           console.info("[WbiSign] imgKey= " + imgKey + " subKey= " + subKey)
           resolve(imgKey + subKey);
         } catch (e) {
-          console.warn('[WbiSign] nav 解析失败，使用备用 key');
-          resolve(FALLBACK_RAW_KEY);
+          console.warn('[WbiSign] nav 解析失败，本次不缓存 key');
+          resolve('');
         }
       }
     );
@@ -148,13 +150,20 @@ function buildQueryString(params: Record<string, string>): string {
  */
 async function encWbiParams(params: Record<string, string | number>): Promise<Record<string, string>> {
   let rawKey: string = AppStorage.get<string>(WBI_RAW_KEY_STORAGE) ?? '';
-  if (!rawKey) {
+  if (rawKey.length !== WBI_RAW_KEY_LENGTH) {
+    let fetched: string = '';
     try {
-      rawKey = await fetchWBIRawKey();
-      AppStorage.setOrCreate(WBI_RAW_KEY_STORAGE, rawKey);
+      fetched = await fetchWBIRawKey();
     } catch (e) {
-      console.warn('[WbiSign] 获取 key 失败，使用备用 key');
-      rawKey = FALLBACK_RAW_KEY;
+      console.warn('[WbiSign] 获取 WBI key 异常，本次不缓存');
+      fetched = '';
+    }
+    rawKey = fetched;
+    if (fetched.length === WBI_RAW_KEY_LENGTH) {
+      AppStorage.setOrCreate(WBI_RAW_KEY_STORAGE, rawKey);
+    } else {
+      // 不缓存非法 key：避免一次瞬时失败污染后续所有 WBI 请求（下次调用会重试）
+      console.warn('[WbiSign] 未取得有效 WBI key（长度 ' + fetched.length + '），本次签名可能失败');
     }
   }
 

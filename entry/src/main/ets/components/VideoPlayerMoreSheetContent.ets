@@ -18,12 +18,24 @@ export struct VideoPlayerMoreSheetContent {
   @Prop availableQualities: VideoQuality[] = [];
   @Prop currentQn: number = 80;
   @Prop batteryLevel: number = 100;
+  @Prop sheetVisible: boolean = false;
   onSeek: (value: number) => void = (_v: number): void => {};
   onSeekStart: () => void = (): void => {};
   onSpeedChange: (speed: number) => void = (_s: number): void => {};
   onVolumeChange: (value: number) => void = (_v: number): void => {};
   onBrightnessChange: (value: number) => void = (_v: number): void => {};
   onQualitySwitch: (qn: number) => void = (_q: number): void => {};
+
+  // ===== 焦点控制（表冠事件只分发给获焦组件） =====
+  private readonly SHEET_LIST_FOCUS_ID: string = 'video_more_sheet_list';
+  private readonly SEEK_SLIDER_FOCUS_ID: string = 'video_more_seek_slider';
+
+  private requestFocusById(id: string): void {
+    try {
+      this.getUIContext().getFocusController().requestFocus(id);
+    } catch (_e) { /* ignore */
+    }
+  }
 
   build() {
     Column() {
@@ -61,9 +73,15 @@ export struct VideoPlayerMoreSheetContent {
       .fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(10) })
       .layoutWeight(1)
       .scrollBar(BarState.Off)
+      .id(this.SHEET_LIST_FOCUS_ID)
       .focusable(true)
       .focusOnTouch(true)
-      .defaultFocus(true)
+      .onAppear(() => {
+        // 仅在面板真正可见时抢焦点，避免未打开时把视频画面的焦点抢走
+        if (this.sheetVisible) {
+          this.requestFocusById(this.SHEET_LIST_FOCUS_ID);
+        }
+      })
     }
     .width('100%')
     .height('100%')
@@ -93,6 +111,12 @@ export struct VideoPlayerMoreSheetContent {
             .selectedColor('#FF69B4')
             .blockColor(Color.White)
             .layoutWeight(1)
+            .id(this.SEEK_SLIDER_FOCUS_ID)
+            .focusable(true)
+            .focusOnTouch(true)
+            .onClick(() => {
+              this.requestFocusById(this.SEEK_SLIDER_FOCUS_ID);
+            })
             .onChange((value: number, mode: SliderChangeMode) => {
               if (mode === SliderChangeMode.Moving) {
                 this.currentProgress = value;
@@ -181,6 +205,8 @@ export struct VideoPlayerMoreSheetContent {
           .selectedColor('#FF69B4')
           .blockColor(Color.White)
           .layoutWeight(1)
+          .focusable(true)
+          .focusOnTouch(true)
           .onChange((value: number) => {
             this.onVolumeChange(value / 100);
           })
@@ -204,6 +230,8 @@ export struct VideoPlayerMoreSheetContent {
           .selectedColor('#FF69B4')
           .blockColor(Color.White)
           .layoutWeight(1)
+          .focusable(true)
+          .focusOnTouch(true)
           .onChange((value: number) => {
             this.onBrightnessChange(value / 100);
           })

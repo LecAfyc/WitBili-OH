@@ -1,5 +1,5 @@
 import { VideoCard } from '../model/ContentCard';
-import { getRecommend, resetRecommendCursor } from '../api/RecommendApi';
+import { getRecommend } from '../api/RecommendApi';
 import { VideoCardComponent } from '../components/VideoCardComponent';
 import { LengthMetrics } from '@kit.ArkUI';
 import { BasicDataSource } from '../utils/BasicDataSource';
@@ -185,7 +185,6 @@ export struct RcmdPage {
     this.errorMessage = '';
 
     if (isRefresh) {
-      resetRecommendCursor();
       this.firstLoad = true;
       this.videoDS.resetData([]);
       this.videoListCount = 0;
@@ -199,7 +198,6 @@ export struct RcmdPage {
         this.firstLoad = false;
       } else {
         this.videoDS.appendData(result.items);
-        this.videoDS.trimTo(50);
         this.videoListCount = this.videoDS.totalCount();
       }
       this.hasMore = result.items.length > 0;

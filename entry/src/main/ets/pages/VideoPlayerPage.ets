@@ -29,8 +29,15 @@ import batteryInfo from '@ohos.batteryInfo';
 import vibrator from '@ohos.vibrator';
 import { audio as harmoniousAudio } from '@kit.AudioKit';
 import { LengthMetrics, window } from '@kit.ArkUI';
-import { applyDefaultPlayerOptions, setupPlayerHeaders } from '../utils/VideoPlayerUtils';
+import { applyDefaultPlayerOptions, setupPlayerHeaders, formatTime } from '../utils/VideoPlayerUtils';
 import { VideoPlayerMoreSheetContent } from '../components/VideoPlayerMoreSheetContent';
+
+// ===== 播放器释放守卫 =====
+// ijkplayer 的 release() 会删除消息回调的 napi_ref，但已投递到主线程的 async work
+// 仍可能执行 after_message 并访问该引用，导致 SIGSEGV。这里延迟 release，等主线程
+// 上已排队的回调先执行完；同时跨页面实例共享状态，避免延迟释放误伤新会话。
+let playerReleaseInProgress: boolean = false;
+let pendingPlayerReleaseTimer: number | undefined = undefined;
 
 @Component
 export struct VideoPlayerPage {
@@ -49,6 +56,8 @@ export struct VideoPlayerPage {
   @State playSpeed: number = 1.0;
   // ===== 音频 =====
   @State stateText: string = '';
+  // ===== 长按倍速提示（按住期间常显，松手隐藏） =====
+  @State longPressSpeedText: string = '';
   // ===== 手势缩放与拖拽 =====
   @State curScale: number = 1.0;
   @State curOffsetX: number = 0;
@@ -81,6 +90,8 @@ export struct VideoPlayerPage {
   @State batteryLevel: number = 100;
   @State availableQualities: VideoQuality[] = [];
   @State currentQnName: string = '';
+  // ===== 离线缓存播放 =====
+  @State private isOfflinePlayback: boolean = false;
   // ===== 视频尺寸 =====
   @State private videoWidth: number = 16;
   @State private videoHeight: number = 9;
@@ -98,6 +109,17 @@ export struct VideoPlayerPage {
   private saveOffsetX: number = 0;
   private saveOffsetY: number = 0;
   private speedBeforeLongPress: number = 1.0;
+  private crownLogCount: number = 0;
+  // ===== 滑动调进度 =====
+  @State isSeekingByGesture: boolean = false;
+  @State seekPreviewMs: number = 0;
+  private panMode: number = 0; // 0 未判定 / 1 移动画面 / 2 调进度 / 3 忽略
+  private seekBaseMs: number = 0;
+  private seekHapticBucket: number = 0;
+  private wasPlayingBeforeGestureSeek: boolean = false;
+  private readonly PAN_ZOOM_SCALE: number = 1.001;
+  private readonly SEEK_PAN_TRIGGER: number = 8;
+  private readonly SEEK_RANGE_MS: number = 120000;
   // ===== IJKPlayer =====
   private mIjkMediaPlayer = IjkMediaPlayer.getInstance();
   private mContext: object | undefined = undefined;
@@ -110,6 +132,17 @@ export struct VideoPlayerPage {
   // ===== 历史记录上报 =====
   private controlsTimerId: number | undefined = undefined;
   private moreProgressTimerId: number | undefined = undefined;
+  // ===== 生命周期与释放 =====
+  private isExiting: boolean = false;
+  private isPlayerReleased: boolean = false;
+  private retryTimerId: number | undefined = undefined;
+  private restartTimerId: number | undefined = undefined;
+  private qualitySeekTimerId: number | undefined = undefined;
+  private seekLoadingTimerId: number | undefined = undefined;
+  // ===== 焦点控制 =====
+  private readonly VIDEO_FOCUS_ID: string = 'video_player_focus_area';
+  private readonly VIDEO_SURFACE_FOCUS_ID: string = 'video_player_surface_focus';
+  private readonly SHEET_LIST_FOCUS_ID: string = 'video_more_sheet_list';
 
 
   pause(): void {
@@ -159,9 +192,16 @@ export struct VideoPlayerPage {
   }
 
   seekTo(positionMs: number): void {
+    if (this.isExiting) {
+      return;
+    }
     let pos: number = Math.round(Math.max(0, positionMs));
     this.isSeekLoading = true;
-    setTimeout(() => {
+    if (this.seekLoadingTimerId !== undefined) {
+      clearTimeout(this.seekLoadingTimerId);
+    }
+    this.seekLoadingTimerId = setTimeout(() => {
+      this.seekLoadingTimerId = undefined;
       this.isSeekLoading = false;
     }, 3000);
     try {
@@ -193,12 +233,15 @@ export struct VideoPlayerPage {
   // ===================================================================
 
   aboutToDisappear(): void {
-    this.releasePlayer();
-    this.releaseAudio();
+    this.isExiting = true;
     this.stopDanmakuTimer();
     this.stopSyncTimer();
     this.clearControlsTimer();
     this.clearMoreProgressTimer();
+    this.clearPendingTimers();
+    this.mContext = undefined;
+    this.releaseAudioSafely();
+    this.releasePlayerSafely();
   }
 
   build() {
@@ -220,9 +263,25 @@ export struct VideoPlayerPage {
               .onLoad((context: object) => {
                 this.mContext = context;
                 this.startPlay();
+                // XComponent 挂载后会成为实际的输入/焦点目标，这里主动把焦点和表冠交给它
+                this.ensureVideoFocus();
               })
               .onDestroy(() => {
-                this.releasePlayer();
+                this.mContext = undefined;
+                this.releasePlayerSafely();
+              })
+              .id(this.VIDEO_SURFACE_FOCUS_ID)
+              .focusable(true)
+              .focusOnTouch(true)
+              .onFocus(() => {
+                console.info('[VideoPlayerPage] 视频Surface获焦，表冠可缩放');
+              })
+              .onBlur(() => {
+                console.warn('[VideoPlayerPage] 视频Surface失焦，表冠将不再缩放');
+              })
+              .onDigitalCrown((event: CrownEvent) => {
+                event.stopPropagation();
+                this.onDigitalCrownAction(event);
               })
               .width(this.baseWidth * this.curScale)
               .height(this.baseHeight * this.curScale)
@@ -254,9 +313,9 @@ export struct VideoPlayerPage {
               .padding(16)
             }
 
-            if (this.stateText) {
+            if (this.stateText || this.longPressSpeedText) {
               Row() {
-                Text(this.stateText)
+                Text(this.longPressSpeedText !== '' ? this.longPressSpeedText : this.stateText)
                   .fontSize(12)
                   .fontColor('#AAAAAA')
                   .padding({
@@ -289,6 +348,35 @@ export struct VideoPlayerPage {
                   console.info('[VideoPlayerPage] 点击弹幕: ' + item.text);
                 }
               }).width('100%').height('100%')
+            }
+
+            if (this.isSeekingByGesture) {
+              Column({ space: 6 }) {
+                Text(formatTime(this.seekPreviewMs))
+                  .fontSize(20)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(Color.White)
+                Progress({
+                  value: this.seekPreviewMs,
+                  total: this.totalDuration > 0 ? this.totalDuration : 1,
+                  type: ProgressType.Linear
+                })
+                  .width(110)
+                  .height(3)
+                  .color('#FF69B4')
+                  .backgroundColor('rgba(255,255,255,0.25)')
+                Text(formatTime(this.totalDuration))
+                  .fontSize(9)
+                  .fontColor('#AAAAAA')
+              }
+              .padding({
+                left: 16,
+                right: 16,
+                top: 10,
+                bottom: 10
+              })
+              .backgroundColor('rgba(0,0,0,0.65)')
+              .borderRadius(14)
             }
           }
         }
@@ -325,6 +413,9 @@ export struct VideoPlayerPage {
               })
               .onActionEnd(() => {
                 this.onPanEnd();
+              })
+              .onActionCancel(() => {
+                this.onPanCancel();
               }),
             LongPressGesture({ duration: 500 })
               .onAction(() => {
@@ -333,11 +424,24 @@ export struct VideoPlayerPage {
               .onActionEnd(() => {
                 this.onLongPressEnd();
               })
+              .onActionCancel(() => {
+                this.onLongPressEnd();
+              })
           )
         )
+        .id(this.VIDEO_FOCUS_ID)
         .focusable(true)
         .focusOnTouch(true)
-        .defaultFocus(!this.showMoreSheet)
+        .defaultFocus(true)
+        .onAppear(() => {
+          this.ensureVideoFocus();
+        })
+        .onFocus(() => {
+          console.info('[VideoPlayerPage] 视频容器获焦');
+        })
+        .onBlur(() => {
+          console.warn('[VideoPlayerPage] 视频容器失焦');
+        })
         .onDigitalCrown((event: CrownEvent) => {
           event.stopPropagation();
           this.onDigitalCrownAction(event);
@@ -358,19 +462,36 @@ export struct VideoPlayerPage {
           this.onSingleTap();
         })
       )
+      // 兜底：视频画面失焦（例如焦点落在控制按钮上）时，表冠事件冒泡到这里仍可缩放
+      .focusable(true)
+      .onDigitalCrown((event: CrownEvent) => {
+        event.stopPropagation();
+        this.onDigitalCrownAction(event);
+      })
       .bindSheet($$this.showMoreSheet, this.MoreSheet(), {
         detents: [SheetSize.MEDIUM,SheetSize.LARGE],
         backgroundColor: 'rgba(28,28,30,0.45)',
         blurStyle: BlurStyle.BACKGROUND_THIN,
         onDisappear: () => {
           this.clearMoreProgressTimer();
+          if (this.isExiting) {
+            return;
+          }
           if (this.wasPlayingBeforeSheet) {
             this.resume();
           }
+          // 面板关闭后强制把焦点还给视频画面，恢复表冠缩放
+          setTimeout(() => {
+            this.ensureVideoFocus();
+          }, 300);
         }
       })
     }
     .hideBackButton(true).hideTitleBar(true)
+    .onShown(() => {
+      // NavDestination 完全显示后再抢焦点，转场期间 requestFocus 可能失败
+      this.ensureVideoFocus();
+    })
     .onReady((context: NavDestinationContext) => {
       let param = context.pathInfo.param as Record<string, Object>;
       if (param) {
@@ -378,6 +499,13 @@ export struct VideoPlayerPage {
         this.cid = param['cid'] as number;
         if (param['qn'] !== undefined) {
           this.qn = param['qn'] as number;
+        }
+        if (param['qnName'] !== undefined) {
+          this.currentQnName = param['qnName'] as string;
+        }
+        if (param['offline'] === true) {
+          this.startOfflinePlayback(param);
+          return;
         }
       }
       if (this.videoCard && this.cid > 0) {
@@ -441,11 +569,13 @@ export struct VideoPlayerPage {
   }
 
   showControlsWithTimer(): void {
-    this.doReportProgress()
     this.showControls = true;
     this.clearControlsTimer();
     this.controlsTimerId = setTimeout(() => {
       this.showControls = false;
+      if (!this.showMoreSheet) {
+        this.ensureVideoFocus();
+      }
     }, 5000);
   }
 
@@ -459,6 +589,50 @@ export struct VideoPlayerPage {
   hideControls(): void {
     this.showControls = false;
     this.clearControlsTimer();
+    if (!this.showMoreSheet) {
+      this.ensureVideoFocus();
+    }
+  }
+
+  // ===================================================================
+  //  焦点控制
+  // ===================================================================
+
+  /** 将焦点切换到指定 id 的组件（滚轮/表冠事件只分发给获焦组件） */
+  private requestFocusById(id: string): void {
+    try {
+      this.getUIContext().getFocusController().requestFocus(id);
+    } catch (e) {
+      console.warn('[VideoPlayerPage] requestFocus 异常: ' + id + ' ' + String(e));
+    }
+  }
+
+  /** 焦点回到视频画面：表冠缩放（XComponent 挂载后优先交给画面本体） */
+  private requestVideoFocus(): void {
+    let targetId: string = this.mContext !== undefined ? this.VIDEO_SURFACE_FOCUS_ID : this.VIDEO_FOCUS_ID;
+    this.requestFocusById(targetId);
+  }
+
+  /**
+   * 确保视频画面获焦：NavDestination 转场/首帧期间 requestFocus 可能失败，
+   * 这里做少量退避重发；面板打开或页面退出时不再抢占焦点。
+   */
+  private ensureVideoFocus(attempt: number = 0): void {
+    if (this.isExiting || this.showMoreSheet) {
+      return;
+    }
+    this.requestVideoFocus();
+    if (attempt >= 3) {
+      return;
+    }
+    setTimeout(() => {
+      this.ensureVideoFocus(attempt + 1);
+    }, 200 * (attempt + 1));
+  }
+
+  /** 焦点回到更多面板列表：表冠滚动面板 */
+  private requestSheetFocus(): void {
+    this.requestFocusById(this.SHEET_LIST_FOCUS_ID);
   }
 
   // ===================================================================
@@ -466,6 +640,8 @@ export struct VideoPlayerPage {
   // ===================================================================
 
   openMoreSheet(): void {
+    // 仅在此处上报观看进度（须在 pause 之前，否则会被 isPlaying 判断拦下）
+    this.doReportProgress();
     this.wasPlayingBeforeSheet = this.isPlaying;
     this.pause();
     this.currentProgress = this.getCurrentPosition();
@@ -478,6 +654,12 @@ export struct VideoPlayerPage {
       }
     }, 500);
     this.initMoreSheetState();
+    // 面板拉起动画结束后把焦点交给面板列表，表冠才能滚动面板
+    setTimeout(() => {
+      if (this.showMoreSheet) {
+        this.requestSheetFocus();
+      }
+    }, 300);
   }
 
   clearMoreProgressTimer(): void {
@@ -612,6 +794,7 @@ export struct VideoPlayerPage {
       availableQualities: this.availableQualities,
       currentQn: this.qn,
       batteryLevel: this.batteryLevel,
+      sheetVisible: this.showMoreSheet,
       onSeekStart: (): void => {
         this.isSeeking = true;
       },
@@ -655,6 +838,27 @@ export struct VideoPlayerPage {
     })
   }
 
+  /** 使用本地缓存文件播放（不请求网络） */
+  private startOfflinePlayback(param: Record<string, Object>): void {
+    this.isOfflinePlayback = true;
+    this.videoUrl = (param['localVideoPath'] as string) || '';
+    this.audioUrl = (param['localAudioPath'] as string) || '';
+    this.isDashStream = param['localIsDash'] === true;
+    let localDuration: number = (param['localDurationMs'] as number) || 0;
+    if (localDuration > 0) {
+      this.totalDuration = localDuration;
+    }
+    if (!this.videoUrl) {
+      this.errorMsg = '缓存文件不存在';
+      this.isLoading = false;
+      return;
+    }
+    this.isLoading = false;
+    if (this.isDashStream && this.audioUrl) {
+      this.startAudioRendering();
+    }
+  }
+
   private async fetchPlayUrl(): Promise<void> {
     try {
       let result: DashPlayUrlResult = await getDashPlayUrl(this.videoCard!.bvid, this.cid, this.qn);
@@ -667,9 +871,13 @@ export struct VideoPlayerPage {
 
       let qualities: VideoQuality[] = [];
       for (let i = 0; i < result.acceptDescription.length; i++) {
+        let qq: number = result.acceptQuality[i] || 0;
+        if (qq === 120 || qq === 116 || qq === 112) {
+          continue;
+        }
         qualities.push({
           name: result.acceptDescription[i],
-          qn: result.acceptQuality[i] || 0
+          qn: qq
         });
       }
       this.availableQualities = qualities;
@@ -693,7 +901,7 @@ export struct VideoPlayerPage {
   }
 
   private async switchQuality(newQn: number): Promise<void> {
-    if (newQn === this.qn) {
+    if (this.isExiting || this.isOfflinePlayback || newQn === this.qn) {
       return;
     }
     let posMs: number = this.getCurrentPosition();
@@ -705,13 +913,16 @@ export struct VideoPlayerPage {
       }
     }
     this.resetPlayer();
-    this.releaseAudio();
+    this.releaseAudioSafely();
     this.stopDanmakuTimer();
     this.stopSyncTimer();
     this.isLoading = true;
     this.errorMsg = '';
     try {
       let result: DashPlayUrlResult = await getDashPlayUrl(this.videoCard!.bvid, this.cid, this.qn);
+      if (this.isExiting) {
+        return;
+      }
       if (!result.videoUrl) {
         throw new Error('videoUrl 为空');
       }
@@ -726,7 +937,14 @@ export struct VideoPlayerPage {
         this.startPlay();
       }
       if (posMs > 0) {
-        setTimeout(() => {
+        if (this.qualitySeekTimerId !== undefined) {
+          clearTimeout(this.qualitySeekTimerId);
+        }
+        this.qualitySeekTimerId = setTimeout(() => {
+          this.qualitySeekTimerId = undefined;
+          if (this.isExiting) {
+            return;
+          }
           this.seekTo(posMs);
         }, 1500);
       }
@@ -738,6 +956,9 @@ export struct VideoPlayerPage {
 
   private async startAudioRendering(): Promise<void> {
     if (this.audioInitStarted) {
+      return;
+    }
+    if (this.isExiting) {
       return;
     }
     this.audioInitStarted = true;
@@ -758,6 +979,11 @@ export struct VideoPlayerPage {
 
       this.setStateText('音频加载中...');
       await this.audioRenderer.init(this.audioUrl);
+
+      if (this.isExiting) {
+        this.releaseAudioSafely();
+        return;
+      }
 
       let videoPosMs: number = this.getVideoPosition();
       if (videoPosMs > 500) {
@@ -835,7 +1061,7 @@ export struct VideoPlayerPage {
   }
 
   private syncAudioWithVideo(): void {
-    if (!this.audioRenderer) {
+    if (this.isExiting || !this.audioRenderer) {
       return;
     }
     let audioState: AudioRenderState = this.audioRenderer.getState();
@@ -871,7 +1097,7 @@ export struct VideoPlayerPage {
 
   /** 执行单次进度上报（非异步，HTTP 请求做 fire-and-forget） */
   private doReportProgress(): void {
-    if (!this.isPlaying) {
+    if (this.isOfflinePlayback || !this.isPlaying) {
       return;
     }
     let vCard = this.videoCard;
@@ -883,14 +1109,10 @@ export struct VideoPlayerPage {
     let progressSec: number = Math.floor(progressMs / 1000);
 
     // fire-and-forget: 用 .then 避免 async/await 在组件销毁后访问 this 导致 SIGSEGV
-    reportWatchProgress(vCard.aid, cid, progressSec).then((result) => {
-      if (this.isPlaying) {
-        if (result.success) {
-          this.setStateText('已上传历史记录');
-        } else if (result.code !== -101) {
-          this.setStateText('历史记录上报失败: ' + result.message);
-        }
-      }
+    reportWatchProgress(vCard.aid, cid, progressSec).then(() => {
+      // 上报结果无需提示
+    }).catch(() => {
+      // 忽略异常，避免未捕获的 Promise
     });
   }
 
@@ -955,10 +1177,25 @@ export struct VideoPlayerPage {
   }
 
   private startPlay(): void {
+    if (this.isExiting) {
+      return;
+    }
+    if (playerReleaseInProgress) {
+      // 上一次释放（退出/重置）尚未完成，等它收尾后再初始化，避免与 release 竞争
+      if (this.restartTimerId !== undefined) {
+        clearTimeout(this.restartTimerId);
+      }
+      this.restartTimerId = setTimeout(() => {
+        this.restartTimerId = undefined;
+        this.startPlay();
+      }, 350);
+      return;
+    }
     if (!this.videoUrl || !this.mContext) {
       this.errorMsg = '播放器初始化失败';
       return;
     }
+    this.isPlayerReleased = false;
 
     try {
       this.mIjkMediaPlayer.setDebug(true);
@@ -969,11 +1206,17 @@ export struct VideoPlayerPage {
 
       this.mIjkMediaPlayer.setOnPreparedListener({
         onPrepared: () => {
+          if (this.isExiting) {
+            return;
+          }
           this.isBuffering = false;
           this.isReconnecting = false;
           this.hasPlaybackStarted = true;
           this.retryCount = 0;
-          this.totalDuration = this.getDuration();
+          let preparedDuration: number = this.getDuration();
+          if (preparedDuration > 0 || !this.isOfflinePlayback) {
+            this.totalDuration = preparedDuration;
+          }
           if (this.savedPositionOnError > 0) {
             let pos: number = this.savedPositionOnError;
             this.savedPositionOnError = 0;
@@ -992,6 +1235,9 @@ export struct VideoPlayerPage {
 
       this.mIjkMediaPlayer.setOnErrorListener({
         onError: (what: number, extra: number) => {
+          if (this.isExiting) {
+            return;
+          }
           if (this.hasPlaybackStarted && this.retryCount < this.MAX_RETRY) {
             this.savedPositionOnError = this.getVideoPosition();
             this.retryCount++;
@@ -999,10 +1245,15 @@ export struct VideoPlayerPage {
             this.isBuffering = false;
             this.isPlaying = false;
             this.stopDanmakuTimer();
-            this.releasePlayer();
-            this.releaseAudio();
-            setTimeout(() => {
-              if (this.mContext !== undefined) {
+            this.stopSyncTimer();
+            this.releaseAudioSafely();
+            // 不在 native 回调栈内释放播放器，交给页面退出或重试前的安全释放流程
+            if (this.retryTimerId !== undefined) {
+              clearTimeout(this.retryTimerId);
+            }
+            this.retryTimerId = setTimeout(() => {
+              this.retryTimerId = undefined;
+              if (!this.isExiting && this.mContext !== undefined) {
                 this.retryPlay();
               }
             }, 1500);
@@ -1011,13 +1262,16 @@ export struct VideoPlayerPage {
             this.isPlaying = false;
             this.isReconnecting = false;
             this.stopDanmakuTimer();
-            this.releaseAudio();
+            this.releaseAudioSafely();
           }
         }
       } as OnErrorListener);
 
       this.mIjkMediaPlayer.setOnCompletionListener({
         onCompletion: () => {
+          if (this.isExiting) {
+            return;
+          }
           this.isPlaying = false;
           this.stopDanmakuTimer();
           this.pause();
@@ -1026,6 +1280,9 @@ export struct VideoPlayerPage {
 
       this.mIjkMediaPlayer.setOnVideoSizeChangedListener({
         onVideoSizeChanged: (width: number, height: number) => {
+          if (this.isExiting) {
+            return;
+          }
           if (width > 0 && height > 0) {
             this.videoWidth = width;
             this.videoHeight = height;
@@ -1037,6 +1294,9 @@ export struct VideoPlayerPage {
 
       this.mIjkMediaPlayer.setOnSeekCompleteListener({
         onSeekComplete: () => {
+          if (this.isExiting) {
+            return;
+          }
           this.isSeekLoading = false;
           this.onAudioSeek();
           let pos = this.getVideoPosition();
@@ -1053,6 +1313,9 @@ export struct VideoPlayerPage {
 
       this.mIjkMediaPlayer.setOnInfoListener({
         onInfo: (what: number, _extra: number) => {
+          if (this.isExiting) {
+            return;
+          }
           if (what === 701) {
             this.handleBufferingStart();
           } else if (what === 702) {
@@ -1113,28 +1376,68 @@ export struct VideoPlayerPage {
   //  手势
   // ===================================================================
 
-  private releaseAudio(): void {
+  private releaseAudioSafely(): void {
     this.stopSyncTimer();
-    this.audioRenderer?.release();
+    try {
+      this.audioRenderer?.release();
+    } catch (_e) { /* ignore */ }
     this.audioRenderer = null;
     this.audioInitStarted = false;
   }
 
-  private releasePlayer(): void {
+  /**
+   * 安全释放播放器：幂等 + 延迟。
+   * ijkplayer 的 release() 删除消息回调的 napi_ref 后，主线程里已排队的
+   * after_message 仍会被执行并访问该引用，导致 SIGSEGV。延迟一个事件循环
+   * 让这些回调先跑完再 release。
+   */
+  private releasePlayerSafely(): void {
+    if (this.isPlayerReleased) {
+      return;
+    }
+    this.isPlayerReleased = true;
     try {
-      this.mIjkMediaPlayer?.stop();
-      this.mIjkMediaPlayer?.release();
-    } catch (_e) { /* ignore */
+      this.mIjkMediaPlayer.stop();
+    } catch (_e) { /* ignore */ }
+    playerReleaseInProgress = true;
+    if (pendingPlayerReleaseTimer !== undefined) {
+      clearTimeout(pendingPlayerReleaseTimer);
+    }
+    pendingPlayerReleaseTimer = setTimeout(() => {
+      pendingPlayerReleaseTimer = undefined;
+      try {
+        this.mIjkMediaPlayer.release();
+      } catch (_e) { /* ignore */ }
+      playerReleaseInProgress = false;
+    }, 300);
+  }
+
+  private clearPendingTimers(): void {
+    if (this.retryTimerId !== undefined) {
+      clearTimeout(this.retryTimerId);
+      this.retryTimerId = undefined;
+    }
+    if (this.restartTimerId !== undefined) {
+      clearTimeout(this.restartTimerId);
+      this.restartTimerId = undefined;
+    }
+    if (this.qualitySeekTimerId !== undefined) {
+      clearTimeout(this.qualitySeekTimerId);
+      this.qualitySeekTimerId = undefined;
+    }
+    if (this.seekLoadingTimerId !== undefined) {
+      clearTimeout(this.seekLoadingTimerId);
+      this.seekLoadingTimerId = undefined;
     }
   }
 
   private retryPlay(): void {
-    this.resetPlayer();
+    this.releasePlayerSafely();
     this.startPlay();
   }
 
   private resetPlayer(): void {
-    this.releasePlayer();
+    this.releasePlayerSafely();
     this.mIjkMediaPlayer = IjkMediaPlayer.getInstance();
   }
 
@@ -1180,6 +1483,11 @@ export struct VideoPlayerPage {
   }
 
   private onDigitalCrownAction(event: CrownEvent): void {
+    this.crownLogCount++;
+    if (this.crownLogCount <= 3 || this.crownLogCount % 20 === 0) {
+      console.info('[VideoPlayerPage] Crown action=' + event.action
+        + ' degree=' + event.degree + ' velocity=' + event.angularVelocity);
+    }
     let delta: number = event.degree * 0.005;
     let newScale: number = Math.max(this.MIN_SCALE, Math.min(this.MAX_SCALE, this.curScale + delta));
     if (newScale === this.curScale) {
@@ -1202,15 +1510,112 @@ export struct VideoPlayerPage {
   private onPanStart(): void {
     this.saveOffsetX = this.curOffsetX;
     this.saveOffsetY = this.curOffsetY;
+    if (this.curScale > this.PAN_ZOOM_SCALE) {
+      // 已缩放：拖动画面
+      this.panMode = 1;
+    } else if (this.totalDuration <= 0) {
+      this.panMode = 3;
+    } else {
+      // 未缩放：待判定方向后调进度
+      this.panMode = 0;
+    }
   }
 
   private onPanUpdate(event: GestureEvent): void {
-    this.curOffsetX = this.saveOffsetX + event.offsetX;
-    this.curOffsetY = this.saveOffsetY + event.offsetY;
+    if (this.panMode === 1) {
+      this.curOffsetX = this.saveOffsetX + event.offsetX;
+      this.curOffsetY = this.saveOffsetY + event.offsetY;
+      return;
+    }
+    if (this.panMode === 0) {
+      let absX: number = Math.abs(event.offsetX);
+      let absY: number = Math.abs(event.offsetY);
+      if (absX < this.SEEK_PAN_TRIGGER && absY < this.SEEK_PAN_TRIGGER) {
+        return;
+      }
+      if (absX < absY) {
+        // 竖直滑动不处理
+        this.panMode = 3;
+        return;
+      }
+      this.panMode = 2;
+      this.beginSeekPreview();
+    }
+    if (this.panMode === 2) {
+      this.updateSeekPreview(event.offsetX);
+    }
   }
 
   private onPanEnd(): void {
-    this.restrictBoundary();
+    if (this.panMode === 1) {
+      this.restrictBoundary();
+    } else if (this.panMode === 2) {
+      this.endSeekPreview(true);
+    }
+    this.panMode = 0;
+  }
+
+  private onPanCancel(): void {
+    if (this.panMode === 2) {
+      this.endSeekPreview(false);
+    }
+    this.panMode = 0;
+  }
+
+  private beginSeekPreview(): void {
+    this.wasPlayingBeforeGestureSeek = this.isPlaying;
+    if (this.isPlaying) {
+      this.pause();
+    }
+    this.seekBaseMs = Math.max(0, this.getCurrentPosition());
+    this.seekPreviewMs = this.seekBaseMs;
+    this.seekHapticBucket = Math.floor(this.seekBaseMs / 10000);
+    this.isSeekingByGesture = true;
+    this.hideControls();
+  }
+
+  private updateSeekPreview(offsetX: number): void {
+    let width: number = this.containerWidth > 0 ? this.containerWidth : 320;
+    let rangeMs: number = this.totalDuration > 0 ? Math.min(this.SEEK_RANGE_MS, this.totalDuration) : this.SEEK_RANGE_MS;
+    let target: number = Math.max(0, Math.min(this.totalDuration, this.seekBaseMs + offsetX / width * rangeMs));
+    if (Math.round(target) === Math.round(this.seekPreviewMs)) {
+      return;
+    }
+    this.seekPreviewMs = target;
+    let bucket: number = Math.floor(target / 10000);
+    if (bucket !== this.seekHapticBucket) {
+      this.seekHapticBucket = bucket;
+      this.vibrateTick();
+    }
+  }
+
+  private endSeekPreview(applySeek: boolean): void {
+    if (!this.isSeekingByGesture) {
+      return;
+    }
+    let target: number = this.seekPreviewMs;
+    let shouldResume: boolean = this.wasPlayingBeforeGestureSeek;
+    this.isSeekingByGesture = false;
+    this.wasPlayingBeforeGestureSeek = false;
+    if (applySeek && Math.round(target) !== Math.round(this.seekBaseMs)) {
+      this.seekTo(target);
+    }
+    if (shouldResume) {
+      this.resume();
+    }
+  }
+
+  private vibrateTick(): void {
+    try {
+      vibrator.startVibration({
+        type: 'time',
+        duration: 10
+      }, {
+        id: 0,
+        usage: 'touch'
+      });
+    } catch (_e) { /* ignore */
+    }
   }
 
   private onDoubleTap(): void {
@@ -1230,12 +1635,13 @@ export struct VideoPlayerPage {
   // ===================================================================
 
   private onLongPressStart(): void {
-    this.setStateText("3.0x");
     this.speedBeforeLongPress = this.currentSpeed;
+    this.longPressSpeedText = '3.0x';
     this.setSpeed(3.0);
   }
 
   private onLongPressEnd(): void {
+    this.longPressSpeedText = '';
     this.setSpeed(this.speedBeforeLongPress);
   }
 

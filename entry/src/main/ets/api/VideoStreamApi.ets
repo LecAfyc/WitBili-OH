@@ -261,6 +261,88 @@ function getVideoStreamForQn(dashData: DashData, qn: number): DashVideoStream | 
   return null;
 }
 
+/**
+ * 获取码率最高的普通音频流（缓存时避开杜比/无损，保证离线兼容性）
+ */
+function getBestNormalAudioStream(dashData: DashData): DashAudioStream | null {
+  let best: DashAudioStream | null = null;
+  for (let i: number = 0; i < dashData.audioStreams.length; i++) {
+    if (best === null || dashData.audioStreams[i].bandwidth > best.bandwidth) {
+      best = dashData.audioStreams[i];
+    }
+  }
+  return best;
+}
+
+/** 缓存下载所需的流信息 */
+export interface CacheStreamResult {
+  videoUrl: string;
+  audioUrl: string;
+  isDash: boolean;
+  durationMs: number;
+  /** 预估总字节数（用于无 Content-Length 时的进度估算） */
+  estimatedBytes: number;
+}
+
+/**
+ * 获取用于缓存的视频流
+ * 优先 durl（音视频合一 MP4），无则使用 DASH（视频 + 普通 AAC 音频）
+ */
+export async function getCacheStreams(bvid: string, cid: number, qn: number): Promise<CacheStreamResult> {
+  try {
+    let durlData: Record<string, Object> = await fetchPlayUrlData(bvid, cid, qn, 1);
+    let durl: Object[] = (durlData['durl'] as Object[]) || [];
+    // 仅单分片 MP4 直接缓存；多分片需要拼接，改用 DASH 完整流
+    if (durl.length === 1) {
+      let firstSeg: Record<string, Object> = durl[0] as Record<string, Object>;
+      let rawUrl: string = (firstSeg['url'] as string) || '';
+      if (rawUrl) {
+        return {
+          videoUrl: rawUrl.replace(/\\u0026/g, '&'),
+          audioUrl: '',
+          isDash: false,
+          durationMs: 0,
+          estimatedBytes: 0
+        };
+      }
+    } else if (durl.length > 1) {
+      console.info('[VideoStreamApi] MP4 为 ' + durl.length + ' 个分片，缓存改用 DASH');
+    }
+  } catch (e) {
+    console.info('[VideoStreamApi] 缓存请求 MP4 失败，降级 DASH: ' + String(e));
+  }
+
+  let raw: Record<string, Object> = await fetchPlayUrlData(bvid, cid, qn, 4048);
+  let dashRaw: Record<string, Object> | undefined = raw['dash'] as Record<string, Object>;
+  if (!dashRaw) {
+    throw new Error('无法获取缓存视频流');
+  }
+
+  let dashData: DashData = parseDashData(dashRaw);
+  let videoStream: DashVideoStream | null = getVideoStreamForQn(dashData, qn);
+  if (videoStream === null || !videoStream.baseUrl) {
+    throw new Error('无可用视频流');
+  }
+  let audioStream: DashAudioStream | null = getBestNormalAudioStream(dashData);
+  if (audioStream === null || !audioStream.baseUrl) {
+    throw new Error('无可用音频流');
+  }
+
+  let durationSec: number = dashData.duration;
+  let estimatedBytes: number = 0;
+  if (durationSec > 0) {
+    estimatedBytes = Math.floor((videoStream.bandwidth + audioStream.bandwidth) / 8 * durationSec);
+  }
+
+  return {
+    videoUrl: videoStream.baseUrl,
+    audioUrl: audioStream.baseUrl,
+    isDash: true,
+    durationMs: durationSec > 0 ? durationSec * 1000 : 0,
+    estimatedBytes: estimatedBytes
+  };
+}
+
 // ===== 主 API =====
 
 /**

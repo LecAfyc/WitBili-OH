@@ -413,7 +413,7 @@ export struct VideoDetailArc {
                 Scroll() {
                   Row({ space: 6 }) {
                     ForEach(this.qualities, (item: VideoQuality) => {
-                      if (item.qn !== 120 && item.qn !== 116) {
+                      if (item.qn !== 120 && item.qn !== 116 && item.qn !== 112) {
                         Text(item.name)
                           .fontSize(12)
                           .fontColor(item.qn === this.selectedQn ? '#FB7299' : '#CCCCCC')
@@ -649,7 +649,25 @@ export struct VideoDetailArc {
           .bindMenu(new Array<MenuAction>(
             {
               value: '缓存', action: () => {
-                console.info('[More] 缓存');
+                let cid: number = this.getCurrentCid();
+                if (cid <= 0 && this.pages.length > 0) {
+                  cid = this.pages[0].cid;
+                }
+                if (cid <= 0) {
+                  this.toast('视频信息未加载完成');
+                  return;
+                }
+                let cacheParam: Record<string, Object> = {
+                  'videoCard': this.pageParam,
+                  'cid': cid,
+                  'qn': this.selectedQn,
+                  'qnName': this.getCurrentQnName(),
+                  'durationMs': this.getCurrentDurationSec() * 1000
+                };
+                this.pageStack.pushPath({
+                  name: 'CacheDownload',
+                  param: cacheParam
+                });
               }
             },
             {
@@ -720,6 +738,27 @@ export struct VideoDetailArc {
     return this.pages[0].cid;
   }
 
+  // ===== 工具：当前清晰度名称 =====
+  private getCurrentQnName(): string {
+    for (let i: number = 0; i < this.qualities.length; i++) {
+      if (this.qualities[i].qn === this.selectedQn) {
+        return this.qualities[i].name;
+      }
+    }
+    return '';
+  }
+
+  // ===== 工具：当前分P时长（秒） =====
+  private getCurrentDurationSec(): number {
+    let cid: number = this.getCurrentCid();
+    for (let i: number = 0; i < this.pages.length; i++) {
+      if (this.pages[i].cid === cid && this.pages[i].duration > 0) {
+        return this.pages[i].duration;
+      }
+    }
+    return this.duration;
+  }
+
   // ===== 加载清晰度列表 =====
   private async loadQualities(): Promise<void> {
     let aid: number = this.pageParam.aid;
@@ -732,8 +771,15 @@ export struct VideoDetailArc {
       let list: VideoQuality[] = await getVideoQualities(bvid, cid);
       if (list.length > 0) {
         this.qualities = list;
-        // 默认选第一个（最高清晰度）
-        this.selectedQn = Math.min(list[0].qn, 80);
+        // 默认选列表中最高的可用清晰度（已屏蔽 4K/Dolby/1080P60/1080P+，上限 1080P=80）
+        this.selectedQn = 80;
+        for (let i: number = 0; i < list.length; i++) {
+          let q: number = list[i].qn;
+          if (q !== 120 && q !== 116 && q !== 112 && q <= 80) {
+            this.selectedQn = q;
+            break;
+          }
+        }
         console.info('[VideoDetail] 清晰度列表加载完成: ' + list.length + ' 项');
         for (let i: number = 0; i < list.length; i++) {
           console.info(

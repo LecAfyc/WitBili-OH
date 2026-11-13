@@ -181,7 +181,7 @@ export struct CommentCardComponent {
             top: 1,
             bottom: 1
           })
-          .margin({ left: 12, top: 4 })
+          .margin({ top: 4 })
       }
 
       // ── 正文段（含表情/@）──

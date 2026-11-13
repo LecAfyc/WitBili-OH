@@ -5,6 +5,7 @@
 
 import { media } from '@kit.MediaKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { fileIo } from '@kit.CoreFileKit';
 import { getCookieString } from '../api/CookiesApi';
 import { HEADERS } from '../api/CommonApi';
 
@@ -22,6 +23,7 @@ export type AudioStateCallback = (state: AudioRenderState, message?: string) => 
 
 export class DashAudioRenderer {
   private avPlayer: media.AVPlayer | null = null;
+  private localFile: fileIo.File | null = null;
   private state: AudioRenderState = AudioRenderState.IDLE;
   private stateCallback: AudioStateCallback | null = null;
   // 同步相关
@@ -162,17 +164,25 @@ export class DashAudioRenderer {
     this.avPlayer = avp;
     this.setState(AudioRenderState.PREPARING);
 
-    let headers: Record<string, string> = {
-      'User-Agent': HEADERS['User-Agent'],
-      'Referer': HEADERS['Referer'],
-      'Origin': HEADERS['Origin']
-    };
-    let cookieStr: string = getCookieString();
-    if (cookieStr) {
-      headers['Cookie'] = cookieStr;
+    let mediaSource: media.MediaSource;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      let headers: Record<string, string> = {
+        'User-Agent': HEADERS['User-Agent'],
+        'Referer': HEADERS['Referer'],
+        'Origin': HEADERS['Origin']
+      };
+      let cookieStr: string = getCookieString();
+      if (cookieStr) {
+        headers['Cookie'] = cookieStr;
+      }
+      mediaSource = media.createMediaSourceWithUrl(url, headers);
+    } else {
+      // 本地缓存文件：通过文件描述符播放
+      let localPath: string = url.startsWith('file://') ? url.substring(7) : url;
+      let file: fileIo.File = fileIo.openSync(localPath, fileIo.OpenMode.READ_ONLY);
+      this.localFile = file;
+      mediaSource = media.createMediaSourceWithUrl('fd://' + file.fd.toString(), {});
     }
-
-    let mediaSource: media.MediaSource = media.createMediaSourceWithUrl(url, headers);
     let strategy: media.PlaybackStrategy = { preferredBufferDuration: 20 };
 
     await new Promise<void>((resolve, reject) => {
@@ -214,13 +224,34 @@ export class DashAudioRenderer {
 
   // ===== 音画同步 =====
 
-  private releaseSync(): void {
-    try {
-      this.avPlayer?.release();
-    } catch (e) {
-      console.warn('[DashAudioRenderer] release: ' + String(e));
+  private closeLocalFile(): void {
+    let f: fileIo.File | null = this.localFile;
+    this.localFile = null;
+    if (!f) {
+      return;
     }
+    try {
+      fileIo.closeSync(f);
+    } catch (_e) { /* ignore */
+    }
+  }
+
+  private releaseSync(): void {
+    let player: media.AVPlayer | null = this.avPlayer;
     this.avPlayer = null;
     this.setState(AudioRenderState.RELEASED);
+    if (!player) {
+      this.closeLocalFile();
+      return;
+    }
+    try {
+      player.release().then(() => {
+        this.closeLocalFile();
+      }).catch((_err: BusinessError) => {
+        this.closeLocalFile();
+      });
+    } catch (_e) {
+      this.closeLocalFile();
+    }
   }
 }

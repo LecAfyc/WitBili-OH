@@ -14,7 +14,7 @@
  */
 
 import { http } from '@kit.NetworkKit';
-import { hmacSha256, genBuvidFp } from './CommonApi';
+import { hmacSha256 } from './CommonApi';
 
 // ===== Cookie 存储器 =====
 
@@ -23,6 +23,9 @@ import { hmacSha256, genBuvidFp } from './CommonApi';
  * 在 App 启动时通过 restoreCookies() 从持久化存储恢复
  */
 export let cookieMap: Record<string, string> = {};
+
+/** ExClimbWuzhi 激活是否已执行（每个 App 生命周期只执行一次） */
+let cookieActivated: boolean = false;
 
 /**
  * 获取完整 Cookie 请求头字符串，如：
@@ -496,9 +499,9 @@ function rawPostForm(url: string, formData: string, headers: Record<string, stri
 }
 
 /**
- * GET 请求返回原始 HTML 文本
+ * GET 请求返回原始 HTML 文本，并把响应头中的 Set-Cookie 合并进 cookieMap
  */
-function rawGetText(url: string, headers: Record<string, string>): Promise<string> {
+function rawGetWithHeaders(url: string, headers: Record<string, string>): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     let req: http.HttpRequest = http.createHttp();
     req.request(url, {
@@ -512,9 +515,46 @@ function rawGetText(url: string, headers: Record<string, string>): Promise<strin
         reject(new Error(err.message));
         return;
       }
+      applySetCookies(resp.header);
       resolve((typeof resp.result === 'string') ? resp.result : '');
     });
   });
+}
+
+/**
+ * 解析响应头中的 Set-Cookie 并合并到 cookieMap
+ * 只取分号前的 name=value，忽略 Domain/Path/Expires 等属性
+ */
+function applySetCookies(header: Object | undefined): void {
+  if (!header) {
+    return;
+  }
+  let h: Record<string, Object> = header as Record<string, Object>;
+  let setCookie: Object | undefined = h['set-cookie'] || h['Set-Cookie'];
+  if (!setCookie) {
+    return;
+  }
+  let items: string[] = [];
+  if (Array.isArray(setCookie)) {
+    items = setCookie as string[];
+  } else if (typeof setCookie === 'string') {
+    items = (setCookie as string).split('\n');
+  } else {
+    return;
+  }
+  for (let i: number = 0; i < items.length; i++) {
+    let item: string = items[i];
+    let semi: number = item.indexOf(';');
+    let nv: string = semi >= 0 ? item.substring(0, semi) : item;
+    let eq: number = nv.indexOf('=');
+    if (eq > 0) {
+      let name: string = nv.substring(0, eq).trim();
+      let value: string = nv.substring(eq + 1).trim();
+      if (name && value && !name.startsWith('.')) {
+        cookieMap[name] = value;
+      }
+    }
+  }
 }
 
 // ===== buvid3 / buvid4 获取 =====
@@ -683,11 +723,11 @@ export async function checkCookies(loginCookieMap?: Record<string, string>): Pro
     }
   }
 
-  // 1. 访问 B 站首页，让服务器下发初始 Cookie（buvid3, buvid4 等）
+  // 1. 访问 B 站首页，让服务器下发初始 Cookie（buvid3, buvid4 等，来自 Set-Cookie）
   try {
     let headers: Record<string, string> = genWebHeaders();
     headers['Cookie'] = getCookieString();
-    await rawGetText('https://www.bilibili.com/', headers);
+    await rawGetWithHeaders('https://www.bilibili.com/', headers);
   } catch (e) {
     console.warn('[CookiesApi] 首页请求失败（不影响本地生成）:', JSON.stringify(e));
   }
@@ -764,11 +804,9 @@ export async function checkCookies(loginCookieMap?: Record<string, string>): Pro
     }
   }
 
-  // 10. buvid_fp（MurmurHash3 x64 128）
-  if (!cookieMap['buvid_fp']) {
-    let uaPart: string = genWebHeaders()['User-Agent'];
-    cookieMap['buvid_fp'] = genBuvidFp(uaPart + Date.now(), 31n);
-  }
+  // 10. buvid_fp：不再本地伪造。
+  // 伪造值与服务端下发的 buvid3 无法对应，会被 B 站风控判定为异常（-412/-352），
+  // 故这里只保留服务端 Set-Cookie 下发的值；缺失时宁可不发送。
 
   // 11. 其他固定值
   let otherKeys: string[] = Object.keys(OTHER_COOKIE_MAP);
@@ -781,6 +819,18 @@ export async function checkCookies(loginCookieMap?: Record<string, string>): Pro
 
   // 持久化
   saveToStorage();
+
+  // 激活 Cookie 环境（ExClimbWuzhi）：每个 App 生命周期只执行一次
+  if (!cookieActivated) {
+    cookieActivated = true;
+    try {
+      let actCode: number = await activeCookieInfo();
+      console.info('[CookiesApi] ExClimbWuzhi 激活完成 code=' + actCode);
+    } catch (e) {
+      console.warn('[CookiesApi] ExClimbWuzhi 激活失败:', JSON.stringify(e));
+    }
+  }
+
   console.info('[CookiesApi] checkCookies 完成, Cookie 数: ' + Object.keys(cookieMap).length);
 }
 

@@ -305,20 +305,28 @@ export async function requestSSOs(): Promise<void> {
 /** 从 AppStorage 恢复 cookieMap（应用启动时调用，同时恢复 CookiesApi） */
 export function restoreCookiesFromStorage(): void {
   let stored: string | undefined = AppStorage.get<string>('AccountData');
-  if (stored) {
-    try {
-      let parsed: Record<string, string> = JSON.parse(stored) as Record<string, string>;
-      let parsedKeys: string[] = Object.keys(parsed);
-      for (let i: number = 0; i < parsedKeys.length; i++) {
-        let key: string = parsedKeys[i];
-        cookieMap[key] = parsed[key];
-        cookiesApiPut(key, parsed[key]);
-      }
-      rebuildCookieHeader();
-      console.info('[Login] Cookies restored:', Object.keys(cookieMap).length, 'items');
-    } catch (e) {
-      console.warn('[Login] Cookie restore failed');
+  // PersistentStorage 初始化值为字符串 'null'，必须显式排除；
+  // 否则 JSON.parse('null') 得到 null，随后 Object.keys(null) 抛异常
+  if (!stored || stored === '' || stored === 'null') {
+    console.info('[Login] 无可恢复的登录 Cookie（未登录）');
+    return;
+  }
+  try {
+    let parsed: Record<string, string> | null = JSON.parse(stored) as Record<string, string> | null;
+    if (!parsed || typeof parsed !== 'object') {
+      console.info('[Login] 登录 Cookie 数据为空，跳过恢复');
+      return;
     }
+    let parsedKeys: string[] = Object.keys(parsed);
+    for (let i: number = 0; i < parsedKeys.length; i++) {
+      let key: string = parsedKeys[i];
+      cookieMap[key] = parsed[key];
+      cookiesApiPut(key, parsed[key]);
+    }
+    rebuildCookieHeader();
+    console.info('[Login] Cookies restored:', Object.keys(cookieMap).length, 'items');
+  } catch (e) {
+    console.warn('[Login] Cookie restore failed');
   }
 }
 

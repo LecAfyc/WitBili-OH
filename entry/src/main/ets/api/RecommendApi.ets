@@ -7,31 +7,9 @@ import { signWBI } from './WbiSign';
 import { ApiResponse, httpGet, HEADERS } from './CommonApi';
 import { formatCount, decodeHTML } from './CommonApi';
 
-// ===== 常量 =====
-const PAGE_SIZE: number = 12; // 每页条数（文档说明默认12）
-const REFRESH_SKIP_PAGES: number = 6; // 每次下拉刷新跳过多少页
-const LAUNCH_PAGE_RANGE: number = 20; // 冷启动随机偏移 1~20 页
+const UNIQ_ID: number = Math.floor(Math.random() * (1500000000000 - 1300000000000) + 1300000000000);
 
-// ===== 分页游标状态（模块级，跨页面持久化） =====
-// 每次冷启动随机偏移起始页，避免每次打开都看到同一批推荐
-let currentFreshIdx: number = 1 + Math.floor(Math.random() * LAUNCH_PAGE_RANGE);
-let currentFetchRow: number = 1 + (currentFreshIdx - 1) * PAGE_SIZE;
-let currentUniqId: number = generateUniqId();
-
-/** 生成新的 uniq_id（每次刷新调用） */
-function generateUniqId(): number {
-  return Math.floor(Math.random() * (1500000000000 - 1300000000000) + 1300000000000);
-}
-
-/**
- * 刷新游标（下拉刷新时调用）
- *
- */
 export function resetRecommendCursor(): void {
-  // 向前跳页，不是回到原点
-  currentFreshIdx += REFRESH_SKIP_PAGES;
-  currentFetchRow += REFRESH_SKIP_PAGES * PAGE_SIZE;
-  currentUniqId = generateUniqId();
 }
 
 // ===== 工具函数（托管至 CommentApi） =====
@@ -130,22 +108,13 @@ export async function getRecommend(): Promise<RecommendResult> {
     items: []
   };
 
-  // 构建参数
   let params: string[] = [
     'web_location=1430650',
     'feed_version=V8',
     'homepage_ver=1',
-    'uniq_id=' + currentUniqId,
-    'screen=466-466',
-    'fresh_type=4', // 相关性（值越大越相关）
-    'ps=' + PAGE_SIZE.toString()
+    'uniq_id=' + UNIQ_ID.toString(),
+    'screen=1100-2056'
   ];
-
-  // 关键：传入游标参数以获取不同内容
-  // fresh_idx / fresh_idx_1h / fetch_row 均为 1 起始
-  params.push('fresh_idx=' + currentFreshIdx.toString());
-  params.push('fresh_idx_1h=' + currentFreshIdx.toString());
-  params.push('fetch_row=' + currentFetchRow.toString());
 
   let rawUrl: string = 'https://api.bilibili.com/x/web-interface/wbi/index/top/feed/rcmd?' + params.join('&');
 
@@ -170,11 +139,6 @@ export async function getRecommend(): Promise<RecommendResult> {
   if (!itemArr) {
     return result;
   }
-
-  // === 更新游标（在解析 item 之前记录数量） ===
-  let itemCount: number = itemArr.length;
-  currentFreshIdx++;
-  currentFetchRow += itemCount;
 
   for (let i: number = 0; i < itemArr.length; i++) {
     let card: Record<string, Object> = itemArr[i] as Record<string, Object>;

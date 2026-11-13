@@ -148,8 +148,7 @@ export struct NavMenu {
           .borderRadius(10)
           .backgroundColor('#161616')
           .onClick(() => {
-            this.getUIContext().getPromptAction().showToast({ message: "对应功能未完成，给你看图吧" })
-            this.navigateTo('ImageViewer', "https://t.alcy.cc/mp");
+            this.navigateTo('CacheList');
           })
         }
       }

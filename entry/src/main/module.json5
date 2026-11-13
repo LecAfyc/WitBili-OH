@@ -19,6 +19,9 @@
       },
       {
         "name": "ohos.permission.ACCESS_NOTIFICATION_POLICY"
+      },
+      {
+        "name": "ohos.permission.GET_NETWORK_INFO"
       }
     ],
     "abilities": [
